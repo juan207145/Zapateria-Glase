@@ -1,142 +1,9 @@
 /*=========================================
         SISTEMA GLASÉ
-        MÓDULO ARREGLOS
+        MÓDULO ARREGLOS (solo efectos visuales)
+        La lógica (guardar, editar, eliminar, buscar,
+        materiales y clientes) está en arreglos.php
 =========================================*/
-
-
-//==============================
-// MENÚ ACTIVO
-//==============================
-
-const menu = document.querySelectorAll(".sidebar li");
-
-menu.forEach(item => {
-
-    item.addEventListener("click", () => {
-
-        menu.forEach(i => i.classList.remove("active"));
-
-        item.classList.add("active");
-
-    });
-
-});
-
-
-//==============================
-// BOTÓN NUEVO ARREGLO
-//==============================
-
-const nuevo = document.getElementById("nuevo");
-
-nuevo.addEventListener("click", () => {
-
-    window.scrollTo({
-
-        top: 0,
-
-        behavior: "smooth"
-
-    });
-
-});
-
-
-//==============================
-// BOTÓN GUARDAR
-//==============================
-
-const guardar = document.querySelector(".guardar");
-
-guardar.addEventListener("click", () => {
-
-    alert("El arreglo se registrará correctamente.");
-
-});
-
-
-//==============================
-// BOTÓN LIMPIAR
-//==============================
-
-const limpiar = document.querySelector(".cancelar");
-
-limpiar.addEventListener("click", () => {
-
-    alert("Formulario limpiado.");
-
-});
-
-
-//==============================
-// BUSCADOR
-//==============================
-
-const buscador = document.getElementById("buscar");
-
-buscador.addEventListener("keyup", () => {
-
-    let filtro = buscador.value.toLowerCase();
-
-    let filas = document.querySelectorAll("tbody tr");
-
-    filas.forEach(fila => {
-
-        let texto = fila.innerText.toLowerCase();
-
-        if (texto.indexOf(filtro) > -1) {
-
-            fila.style.display = "";
-
-        } else {
-
-            fila.style.display = "none";
-
-        }
-
-    });
-
-});
-
-
-//==============================
-// BOTONES EDITAR
-//==============================
-
-const editar = document.querySelectorAll(".editar");
-
-editar.forEach(btn => {
-
-    btn.addEventListener("click", () => {
-
-        alert("Aquí se abrirá la edición del arreglo.");
-
-    });
-
-});
-
-
-//==============================
-// BOTONES ELIMINAR
-//==============================
-
-const eliminar = document.querySelectorAll(".eliminar");
-
-eliminar.forEach(btn => {
-
-    btn.addEventListener("click", () => {
-
-        let respuesta = confirm("¿Desea eliminar este arreglo?");
-
-        if (respuesta) {
-
-            btn.parentElement.parentElement.remove();
-
-        }
-
-    });
-
-});
 
 
 //==============================
@@ -145,52 +12,20 @@ eliminar.forEach(btn => {
 
 window.addEventListener("load", () => {
 
-    const formulario = document.querySelector(".formulario");
+    const bloques = document.querySelectorAll(".panel-stock, .tabla");
 
-    const tabla = document.querySelector(".tabla");
+    bloques.forEach((bloque, i) => {
 
-    formulario.style.opacity = "0";
-    tabla.style.opacity = "0";
+        bloque.style.opacity = "0";
+        bloque.style.transform = "translateY(30px)";
 
-    formulario.style.transform = "translateY(30px)";
-    tabla.style.transform = "translateY(30px)";
+        setTimeout(() => {
 
-    setTimeout(() => {
+            bloque.style.transition = ".6s";
+            bloque.style.opacity = "1";
+            bloque.style.transform = "translateY(0px)";
 
-        formulario.style.transition = ".6s";
-        formulario.style.opacity = "1";
-        formulario.style.transform = "translateY(0px)";
-
-    }, 200);
-
-    setTimeout(() => {
-
-        tabla.style.transition = ".6s";
-        tabla.style.opacity = "1";
-        tabla.style.transform = "translateY(0px)";
-
-    }, 450);
-
-});
-
-
-//==============================
-// EFECTO INPUTS
-//==============================
-
-const inputs = document.querySelectorAll("input, select, textarea");
-
-inputs.forEach(input => {
-
-    input.addEventListener("focus", () => {
-
-        input.style.border = "2px solid #6D4C41";
-
-    });
-
-    input.addEventListener("blur", () => {
-
-        input.style.border = "1px solid #ddd";
+        }, 200 + i * 250);
 
     });
 
@@ -198,41 +33,57 @@ inputs.forEach(input => {
 
 
 //==============================
-// HOVER BOTONES
+// EFECTO EN INPUTS (también en los creados dinámicamente)
 //==============================
 
-const botones = document.querySelectorAll("button");
+document.addEventListener("focusin", (e) => {
 
-botones.forEach(btn => {
+    if (e.target.matches("input, select, textarea")) {
 
-    btn.addEventListener("mouseenter", () => {
+        e.target.style.border = "2px solid #6D4C41";
+
+    }
+
+});
+
+document.addEventListener("focusout", (e) => {
+
+    if (e.target.matches("input, select, textarea")) {
+
+        e.target.style.border = "1px solid #ddd";
+
+    }
+
+});
+
+
+//==============================
+// HOVER EN BOTONES
+//==============================
+
+document.addEventListener("mouseover", (e) => {
+
+    const btn = e.target.closest("button");
+
+    if (btn) {
 
         btn.style.transform = "translateY(-2px)";
 
-    });
-
-    btn.addEventListener("mouseleave", () => {
-
-        btn.style.transform = "translateY(0px)";
-
-    });
+    }
 
 });
 
+document.addEventListener("mouseout", (e) => {
 
-//==============================
-// FECHA ACTUAL AUTOMÁTICA
-//==============================
+    const btn = e.target.closest("button");
 
-const fechaIngreso = document.querySelector('input[type="date"]');
+    if (btn) {
 
-if (fechaIngreso) {
+        btn.style.transform = "translateY(0px)";
 
-    let hoy = new Date().toISOString().split("T")[0];
+    }
 
-    fechaIngreso.value = hoy;
-
-}
+});
 
 
 //==============================
@@ -241,45 +92,27 @@ if (fechaIngreso) {
 
 const header = document.querySelector("header");
 
-const reloj = document.createElement("span");
+if (header) {
 
-reloj.style.marginLeft = "20px";
-reloj.style.color = "#6D4C41";
-reloj.style.fontWeight = "600";
+    const reloj = document.createElement("span");
 
-header.appendChild(reloj);
+    reloj.style.marginLeft = "20px";
+    reloj.style.color = "#6D4C41";
+    reloj.style.fontWeight = "600";
 
-function actualizarHora(){
+    header.appendChild(reloj);
 
-    const fecha = new Date();
+    function actualizarHora() {
 
-    reloj.innerHTML = fecha.toLocaleString();
+        reloj.textContent = new Date().toLocaleString();
+
+    }
+
+    setInterval(actualizarHora, 1000);
+
+    actualizarHora();
 
 }
-
-setInterval(actualizarHora,1000);
-
-actualizarHora();
-
-
-//==============================
-// CONTADOR DE REGISTROS
-//==============================
-
-const filas = document.querySelectorAll("tbody tr");
-
-console.log("Arreglos registrados: " + filas.length);
-
-
-//==============================
-// MENSAJE DE BIENVENIDA
-//==============================
-
-setTimeout(()=>{
-
-    console.log("Bienvenido al módulo de Arreglos.");
-
-},500);
 
 
 //==============================

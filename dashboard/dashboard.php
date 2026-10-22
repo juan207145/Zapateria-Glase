@@ -74,8 +74,7 @@
         </li>
 
         <li>
-            
-            <a href="../cerrarsesion.php">
+            <a href="cerrarsesion.php">
                 <i class="fa-solid fa-right-from-bracket"></i>
                 Cerrar Sesión
             </a>

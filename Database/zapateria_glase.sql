@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 21-10-2026 a las 07:41:34
+-- Tiempo de generación: 22-10-2026 a las 05:32:55
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.2.12
 
@@ -17,9 +17,73 @@ SET time_zone = "+00:00";
 /*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
 /*!40101 SET NAMES utf8mb4 */;
 
-
+--
 -- Base de datos: `zapateria_glase`
 --
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `arreglos`
+--
+
+CREATE TABLE `arreglos` (
+  `id` int(11) NOT NULL,
+  `cliente_id` int(11) DEFAULT NULL,
+  `cliente` varchar(250) DEFAULT NULL,
+  `telefono` varchar(50) DEFAULT NULL,
+  `tipo_calzado` varchar(100) NOT NULL,
+  `tipo_arreglo` varchar(100) NOT NULL,
+  `fecha_ingreso` date NOT NULL,
+  `fecha_entrega` date DEFAULT NULL,
+  `valor` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `estado` varchar(30) NOT NULL DEFAULT 'Pendiente',
+  `observaciones` text DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `arreglos`
+--
+
+INSERT INTO `arreglos` (`id`, `cliente_id`, `cliente`, `telefono`, `tipo_calzado`, `tipo_arreglo`, `fecha_ingreso`, `fecha_entrega`, `valor`, `estado`, `observaciones`) VALUES
+(2, 26, NULL, NULL, 'Tenis', 'Costura', '2026-10-22', '0000-00-00', 20000.00, 'Pendiente', ''),
+(3, 27, NULL, NULL, 'Tenis', 'Pegado', '2026-10-18', '2026-10-25', 15000.00, 'Pendiente', 'Suela despegada en la punta.'),
+(4, 28, NULL, NULL, 'Botas', 'Costura', '2026-10-16', '2026-10-23', 25000.00, 'En Proceso', 'Costura lateral abierta en bota derecha.'),
+(5, 29, NULL, NULL, 'Zapato Formal', 'Cambio de Tacón', '2026-10-10', '2026-10-14', 45000.00, 'Finalizado', 'Cambio de tacón y retoque de cuero.'),
+(6, 30, NULL, NULL, 'Sandalias', 'Costura', '2026-10-19', '2026-10-22', 20000.00, 'En Proceso', 'Cambio de hebilla y refuerzo de costura.'),
+(7, 28, NULL, NULL, 'Tacones', 'Limpieza', '2026-10-20', NULL, 12000.00, 'Pendiente', 'Limpieza y acondicionado de cuero.'),
+(8, 27, NULL, NULL, 'Botas', 'Cambio de Suela', '2026-10-21', NULL, 60000.00, 'Pendiente', 'Pendiente de definir materiales.'),
+(9, 29, NULL, NULL, 'Tenis', 'Costura', '2026-10-05', '2026-10-08', 18000.00, 'Finalizado', 'Cremallera y costura reemplazadas.');
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `arreglo_materiales`
+--
+
+CREATE TABLE `arreglo_materiales` (
+  `id` int(11) NOT NULL,
+  `arreglo_id` int(11) NOT NULL,
+  `material_id` int(11) NOT NULL,
+  `cantidad` int(11) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `arreglo_materiales`
+--
+
+INSERT INTO `arreglo_materiales` (`id`, `arreglo_id`, `material_id`, `cantidad`) VALUES
+(2, 2, 27, 5),
+(3, 3, 27, 1),
+(4, 4, 30, 2),
+(5, 4, 23, 1),
+(6, 5, 31, 2),
+(7, 5, 27, 1),
+(8, 6, 26, 2),
+(9, 6, 38, 1),
+(10, 7, 36, 1),
+(11, 9, 25, 1),
+(12, 9, 30, 1);
 
 -- --------------------------------------------------------
 
@@ -64,7 +128,26 @@ INSERT INTO `clientes` (`id`, `nombres`, `documento`, `telefono`, `correo`, `dir
 (22, 'David Alejandro Parra', '1178901234', '3167778800', 'david.parra@hotmail.com', 'Calle 10 # 3-45', 'Cali', 'Compra calzado de seguridad/industrial.', '2026-10-20 18:44:24'),
 (23, 'Camila Andrea Medina', '1189012345', '3178889911', 'camila.medina@gmail.com', 'Carrera 27 # 54-18', 'Bucaramanga', 'Interesada en zapatillas deportivas de marca.', '2026-10-20 18:44:24'),
 (24, 'Esteban Jose Gomez', '1190123456', '3189990022', 'esteban.gomez@yahoo.com', 'Calle 65 # 10-20', 'Bogota DC', 'Cliente frecuente del área de arreglos.', '2026-10-20 18:44:24'),
-(25, 'Paola Andrea Castro', '1201234567', '3190001133', 'paola.castr@gmail.com', 'Carrera 14 # 80-50', 'Medellin', 'Busca calzado formal para eventos.', '2026-10-20 18:44:24');
+(25, 'Paola Andrea Castro', '1201234567', '3190001133', 'paola.castr@gmail.com', 'Carrera 14 # 80-50', 'Medellin', 'Busca calzado formal para eventos.', '2026-10-20 18:44:24'),
+(26, 'jaun', '1013112834', '3122312312', 'jaunpa@gmail.com', 'cra 73b 7b 03', 'Bogota DC', '', '2026-10-21 22:12:25'),
+(27, 'Juan Pérez', '1001001001', '3001112233', 'juan.perez@correo.com', 'Calle 10 # 5-20', 'Bogotá', 'Cliente de prueba', '2026-10-21 22:31:10'),
+(28, 'Laura Gómez', '1001001002', '3104445566', 'laura.gomez@correo.com', 'Carrera 7 # 45-12', 'Medellín', 'Cliente de prueba', '2026-10-21 22:31:10'),
+(29, 'Camilo Díaz', '1001001003', '3207778899', 'camilo.diaz@correo.com', 'Av. Boyacá # 80-15', 'Bogotá', 'Cliente de prueba', '2026-10-21 22:31:10'),
+(30, 'Marcela Rojas', '1001001004', '3159990011', 'marcela.rojas@correo.com', 'Calle 50 # 20-30', 'Cali', 'Cliente de prueba', '2026-10-21 22:31:10'),
+(31, 'Andrés Torres', '1001001005', '3012223344', 'andres.torres@correo.com', 'Carrera 15 # 100-8', 'Barranquilla', 'Cliente de prueba sin arreglos', '2026-10-21 22:31:10');
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `historial_configuracion`
+--
+
+CREATE TABLE `historial_configuracion` (
+  `id` int(11) NOT NULL,
+  `detalle` varchar(255) NOT NULL,
+  `tipo` varchar(50) NOT NULL,
+  `fecha` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
@@ -84,7 +167,17 @@ CREATE TABLE `historial_materiales` (
 --
 
 INSERT INTO `historial_materiales` (`id`, `detalle`, `tipo`, `fecha`) VALUES
-(1, '<strong>Agregado:</strong> Ingreso de nuevo material pegante.', 'agregado', '2026-10-21 05:10:01');
+(1, '<strong>Agregado:</strong> Ingreso de nuevo material pegante.', 'agregado', '2026-10-21 05:10:01'),
+(2, '<strong>Eliminado:</strong> Se retiró del inventario Material ID MAT019.', 'eliminado', '2026-10-22 02:24:50'),
+(3, '<strong>Agregado:</strong> Ingreso de nuevo material pegante.', 'agregado', '2026-10-22 02:32:41'),
+(4, '<strong>Agregado:</strong> Ingreso de nuevo material pegante.', 'agregado', '2026-10-22 02:33:29'),
+(5, '<strong>Agregado:</strong> Ingreso de nuevo material pegante.', 'agregado', '2026-10-22 02:35:46'),
+(6, '<strong>Agregado:</strong> Ingreso de nuevo material 33213131.', 'agregado', '2026-10-22 02:37:09'),
+(7, 'Ingreso de nuevo material.', 'agregado', '2026-10-22 02:39:01'),
+(8, 'Modificación de material.', 'editado', '2026-10-22 02:44:15'),
+(9, 'Se retiró del inventario pegante.', 'eliminado', '2026-10-22 02:46:24'),
+(10, 'Uso de 6 de Pegante Amarillo en arreglo de juanpablozambra.', 'editado', '2026-10-22 02:57:17'),
+(11, 'Uso de 5 de Pegante Transparente en un arreglo.', 'editado', '2026-10-22 03:12:25');
 
 -- --------------------------------------------------------
 
@@ -132,8 +225,9 @@ CREATE TABLE `iniciodesesion` (
 --
 
 INSERT INTO `iniciodesesion` (`Id`, `Usuario`, `Contraseña`, `Rol`) VALUES
-(3, 'Zambrano', '123456', 'Administrador'),
-(4, 'Zambrano', '12345', 'Empleado');
+(1, 'Zambrano', '123456', 'Administrador'),
+(2, 'Zambrano', '12345', 'Empleado'),
+(5, 'Juan', '12345', 'Administrador');
 
 -- --------------------------------------------------------
 
@@ -142,7 +236,7 @@ INSERT INTO `iniciodesesion` (`Id`, `Usuario`, `Contraseña`, `Rol`) VALUES
 --
 
 CREATE TABLE `materiales` (
-  `Id` int(11) NOT NULL,
+  `id` int(11) NOT NULL,
   `codigo` varchar(250) NOT NULL,
   `nombredelmaterial` varchar(250) NOT NULL,
   `categoria` varchar(250) NOT NULL,
@@ -155,28 +249,32 @@ CREATE TABLE `materiales` (
 -- Volcado de datos para la tabla `materiales`
 --
 
-INSERT INTO `materiales` (`Id`, `codigo`, `nombredelmaterial`, `categoria`, `cantidad`, `unidad`, `proveedor`) VALUES
-(21, 'MAT001', 'Pegante Amarillo', 'Pegantes', 25, 'Tarros', 'Distribuidora Quimica S.A.'),
+INSERT INTO `materiales` (`id`, `codigo`, `nombredelmaterial`, `categoria`, `cantidad`, `unidad`, `proveedor`) VALUES
+(21, 'MAT001', 'Pegante Amarillo', 'Pegantes', 19, 'Tarros', 'Distribuidora Quimica S.A.'),
 (22, 'MAT002', 'Suela Deportiva', 'Suelas', 14, 'Pares', 'Calzado y Suelas del Centro'),
-(23, 'MAT003', 'Hilo Negro', 'Hilos', 6, 'Rollos', 'Hilos y Costuras Ltda.'),
+(23, 'MAT003', 'Hilo Negro', 'Hilos', 5, 'Rollos', 'Hilos y Costuras Ltda.'),
 (24, 'MAT004', 'Plantilla de Cuero', 'Plantillas', 32, 'Unidades', 'Curtiembres Nacionales'),
-(25, 'MAT005', 'Cremallera Café', 'Accesorios', 9, 'Unidades', 'Cremalleras y Cierres S.A.'),
-(26, 'MAT006', 'Hebillas Metálicas', 'Accesorios', 4, 'Unidades', 'Metalistería Industrial'),
-(27, 'MAT007', 'Pegante Transparente', 'Pegantes', 5, 'Tarros', 'Distribuidora Quimica S.A.'),
+(25, 'MAT005', 'Cremallera Café', 'Accesorios', 8, 'Unidades', 'Cremalleras y Cierres S.A.'),
+(26, 'MAT006', 'Hebillas Metálicas', 'Accesorios', 2, 'Unidades', 'Metalistería Industrial'),
+(27, 'MAT007', 'Pegante Transparente', 'Pegantes', 0, 'Tarros', 'Distribuidora Quimica S.A.'),
 (28, 'MAT008', 'Cordones Blancos', 'Accesorios', 3, 'Pares', 'Textiles y Cordones El Tigre'),
 (29, 'MAT009', 'Suela Casual de Goma', 'Suelas', 20, 'Pares', 'Calzado y Suelas del Centro'),
-(30, 'MAT010', 'Hilo Café', 'Hilos', 15, 'Rollos', 'Hilos y Costuras Ltda.'),
-(31, 'MAT011', 'Cuero Sintético Negro', 'Materiales', 10, 'Metros', 'Curtiembres Nacionales'),
+(30, 'MAT010', 'Hilo Café', 'Hilos', 12, 'Rollos', 'Hilos y Costuras Ltda.'),
+(31, 'MAT011', 'Cuero Sintético Negro', 'Materiales', 8, 'Metros', 'Curtiembres Nacionales'),
 (32, 'MAT012', 'Lona Impermeable', 'Materiales', 8, 'Metros', 'Textiles y Cordones El Tigre'),
 (33, 'MAT013', 'Tacón de Madera', 'Accesorios', 12, 'Pares', 'Madera y Tacones Exclusivos'),
 (34, 'MAT014', 'Ojetes Metálicos', 'Accesorios', 50, 'Unidades', 'Metalistería Industrial'),
 (35, 'MAT015', 'Plantilla Anatómica', 'Plantillas', 18, 'Unidades', 'Curtiembres Nacionales'),
-(36, 'MAT016', 'Cera para Cuero', 'Accesorios', 7, 'Unidades', 'Distribuidora Quimica S.A.'),
+(36, 'MAT016', 'Cera para Cuero', 'Accesorios', 6, 'Unidades', 'Distribuidora Quimica S.A.'),
 (37, 'MAT017', 'Suela de Bota Trekking', 'Suelas', 11, 'Pares', 'Calzado y Suelas del Centro'),
-(38, 'MAT018', 'Hilo Transparente', 'Hilos', 9, 'Rollos', 'Hilos y Costuras Ltda.'),
+(38, 'MAT018', 'Hilo Transparente', 'Hilos', 8, 'Rollos', 'Hilos y Costuras Ltda.'),
 (39, 'MAT019', 'Pegante de Contacto Fuerte', 'Pegantes', 14, 'Tarros', 'Distribuidora Quimica S.A.'),
 (40, 'MAT020', 'Velcro Negro', 'Accesorios', 25, 'Metros', 'Textiles y Cordones El Tigre'),
-(41, 'MAt000324', 'pegante', 'Pegantes', 2321, 'Tarros', 'Sa');
+(41, 'MAt000324', 'pegante', 'Pegantes', 2321, 'Tarros', 'Sa'),
+(42, 'MAt000324', 'pegante', 'Suelas', 32131, '0', '231312'),
+(44, 'MAt0232', 'pegante', 'Pegantes', 23123, 'Tarros', '0'),
+(45, 'MAt000324', '33213131', 'Plantillas', 321321, 'Pares', '0'),
+(46, '2424142', 'pegante', 'Suelas', 1212, 'Tarros', 'ta');
 
 -- --------------------------------------------------------
 
@@ -223,9 +321,30 @@ INSERT INTO `productos` (`id`, `codigo`, `nombre`, `categoria`, `talla`, `cantid
 --
 
 --
+-- Indices de la tabla `arreglos`
+--
+ALTER TABLE `arreglos`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `cliente_id` (`cliente_id`);
+
+--
+-- Indices de la tabla `arreglo_materiales`
+--
+ALTER TABLE `arreglo_materiales`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `arreglo_id` (`arreglo_id`),
+  ADD KEY `material_id` (`material_id`);
+
+--
 -- Indices de la tabla `clientes`
 --
 ALTER TABLE `clientes`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Indices de la tabla `historial_configuracion`
+--
+ALTER TABLE `historial_configuracion`
   ADD PRIMARY KEY (`id`);
 
 --
@@ -250,7 +369,7 @@ ALTER TABLE `iniciodesesion`
 -- Indices de la tabla `materiales`
 --
 ALTER TABLE `materiales`
-  ADD PRIMARY KEY (`Id`);
+  ADD PRIMARY KEY (`id`);
 
 --
 -- Indices de la tabla `productos`
@@ -263,16 +382,34 @@ ALTER TABLE `productos`
 --
 
 --
+-- AUTO_INCREMENT de la tabla `arreglos`
+--
+ALTER TABLE `arreglos`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
+
+--
+-- AUTO_INCREMENT de la tabla `arreglo_materiales`
+--
+ALTER TABLE `arreglo_materiales`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
+
+--
 -- AUTO_INCREMENT de la tabla `clientes`
 --
 ALTER TABLE `clientes`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=26;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=32;
+
+--
+-- AUTO_INCREMENT de la tabla `historial_configuracion`
+--
+ALTER TABLE `historial_configuracion`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT de la tabla `historial_materiales`
 --
 ALTER TABLE `historial_materiales`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
 
 --
 -- AUTO_INCREMENT de la tabla `historial_mercancia`
@@ -284,13 +421,13 @@ ALTER TABLE `historial_mercancia`
 -- AUTO_INCREMENT de la tabla `iniciodesesion`
 --
 ALTER TABLE `iniciodesesion`
-  MODIFY `Id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `Id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT de la tabla `materiales`
 --
 ALTER TABLE `materiales`
-  MODIFY `Id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=42;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=47;
 
 --
 -- AUTO_INCREMENT de la tabla `productos`
