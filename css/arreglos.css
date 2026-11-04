@@ -438,9 +438,17 @@ header p{
 
 .tag-stock.bajo{
 
-    background:#fdecea;
+    background:#FFF3CD;
 
-    color:var(--rojo);
+    color:#856404;
+
+}
+
+.tag-stock.agotado{
+
+    background:#f8d7da;
+
+    color:#721c24;
 
 }
 

@@ -3,6 +3,7 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 include '../../conexion.php';
+require_once __DIR__ . '/actividad.php';
 
 // Hace que los errores de MySQL lancen excepciones (necesario para que las transacciones hagan rollback)
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
@@ -134,8 +135,20 @@ function nombre_material($conexion, $material_id) {
     return $fila ? $fila['nombredelmaterial'] : null;
 }
 
-// Lee y valida los datos generales del arreglo. Devuelve array o null si hay error.
-function leer_datos_arreglo($estados_validos) {
+// Rango permitido para las fechas (ajústalo si lo necesitas)
+define('FECHA_MIN', '2020-01-01');      // no se aceptan fechas anteriores a esta
+define('VALOR_MAX', 100000000);         // tope razonable para el valor del servicio
+
+// Comprueba que el texto sea una fecha real del calendario (formato AAAA-MM-DD)
+function fecha_real($fecha) {
+    $dt = DateTime::createFromFormat('Y-m-d', $fecha);
+    return $dt && $dt->format('Y-m-d') === $fecha;
+}
+
+// Lee y valida los datos generales del arreglo.
+// Devuelve el array de datos, o null si hay error (el motivo queda en $error).
+function leer_datos_arreglo($estados_validos, &$error) {
+    $error = '';
     $d = [
         'tipo_calzado' => trim($_POST['tipo_calzado'] ?? ''),
         'tipo_arreglo' => trim($_POST['tipo_arreglo'] ?? ''),
@@ -145,11 +158,36 @@ function leer_datos_arreglo($estados_validos) {
         'estado' => trim($_POST['estado'] ?? 'Pendiente'),
         'observaciones' => trim($_POST['observaciones'] ?? ''),
     ];
-    $ok = ($d['tipo_calzado'] !== '' && $d['tipo_arreglo'] !== '' && $d['fecha_ingreso'] !== ''
-        && $d['valor'] !== '' && is_numeric($d['valor']) && in_array($d['estado'], $estados_validos, true));
-    if (!$ok) {
+
+    // Campos obligatorios
+    if ($d['tipo_calzado'] === '' || $d['tipo_arreglo'] === '' || $d['fecha_ingreso'] === ''
+        || $d['valor'] === '' || !in_array($d['estado'], $estados_validos, true)) {
+        $error = "Por favor completa todos los campos obligatorios.";
         return null;
     }
+
+    // Fecha de ingreso: real, desde FECHA_MIN y no futura
+    $hoy = date('Y-m-d');
+    if (!fecha_real($d['fecha_ingreso']) || $d['fecha_ingreso'] < FECHA_MIN || $d['fecha_ingreso'] > $hoy) {
+        $error = "La fecha de ingreso no es válida. Debe ser una fecha real entre el " . date('d/m/Y', strtotime(FECHA_MIN)) . " y hoy.";
+        return null;
+    }
+
+    // Fecha de entrega (opcional): real, no anterior al ingreso y máximo 1 año adelante
+    if ($d['fecha_entrega'] !== '') {
+        $max_entrega = date('Y-m-d', strtotime('+1 year'));
+        if (!fecha_real($d['fecha_entrega']) || $d['fecha_entrega'] < $d['fecha_ingreso'] || $d['fecha_entrega'] > $max_entrega) {
+            $error = "La fecha de entrega no es válida. Debe ser real, igual o posterior a la de ingreso y no pasar de un año.";
+            return null;
+        }
+    }
+
+    // Valor del servicio: número mayor que 0
+    if (!is_numeric($d['valor']) || (float) $d['valor'] <= 0 || (float) $d['valor'] > VALOR_MAX) {
+        $error = "El valor del servicio debe ser un número mayor que 0.";
+        return null;
+    }
+
     $d['valor'] = (float) $d['valor'];
     $d['fecha_entrega'] = ($d['fecha_entrega'] !== '') ? $d['fecha_entrega'] : null;
     return $d;
@@ -157,12 +195,13 @@ function leer_datos_arreglo($estados_validos) {
 
 // ---------------- 1. GUARDAR ARREGLO + DESCONTAR MATERIALES ----------------
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_arreglo'])) {
-    $d = leer_datos_arreglo($estados_validos);
+    $error_datos = '';
+    $d = leer_datos_arreglo($estados_validos, $error_datos);
     $usos = leer_usos();
 
     if ($d === null) {
         $alerta_tipo = "warning";
-        $alerta_mensaje = "Por favor completa todos los campos obligatorios.";
+        $alerta_mensaje = ($error_datos !== '') ? $error_datos : "Por favor completa todos los campos obligatorios.";
     } else {
         $conexion->begin_transaction();
         try {
@@ -200,6 +239,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_arreglo'])) {
             }
 
             $conexion->commit();
+            registrar_actividad($conexion, 'Arreglos', 'Nuevo arreglo registrado: ' . $d['tipo_arreglo'] . ' de ' . nombre_cliente_actividad($conexion, $cliente_id) . '.', 'agregado');
             foreach ($historial as $h) {
                 registrar_historial($conexion, $h, 'editado');
             }
@@ -218,12 +258,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_arreglo'])) {
 // ---------------- 2. ACTUALIZAR ARREGLO + AJUSTAR STOCK ----------------
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_arreglo'])) {
     $id = (int) ($_POST['id'] ?? 0);
-    $d = leer_datos_arreglo($estados_validos);
+    $error_datos = '';
+    $d = leer_datos_arreglo($estados_validos, $error_datos);
     $usos = leer_usos();
 
     if ($id <= 0 || $d === null) {
         $alerta_tipo = "warning";
-        $alerta_mensaje = "Por favor completa todos los campos obligatorios.";
+        $alerta_mensaje = ($error_datos !== '') ? $error_datos : "Por favor completa todos los campos obligatorios.";
     } else {
         $conexion->begin_transaction();
         try {
@@ -307,6 +348,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_arreglo'])
             $stmt->close();
 
             $conexion->commit();
+            registrar_actividad($conexion, 'Arreglos', 'Arreglo #' . $id . ' editado (' . $d['tipo_arreglo'] . ', ' . $d['estado'] . ').', 'editado');
             foreach ($historial as $h) {
                 registrar_historial($conexion, $h, 'editado');
             }
@@ -332,6 +374,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cambiar_estado'])) {
         $stmt->bind_param("si", $estado, $id);
         $stmt->execute();
         $stmt->close();
+        registrar_actividad($conexion, 'Arreglos', 'Arreglo #' . $id . ' cambió a ' . $estado . '.', 'editado');
         $alerta_tipo = "success";
         $alerta_mensaje = "Estado actualizado correctamente.";
         $redireccionar = "arreglos.php";
@@ -385,6 +428,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['eliminar_arreglo'])) 
             }
 
             $conexion->commit();
+            registrar_actividad($conexion, 'Arreglos', 'Arreglo #' . $id . ' eliminado.', 'eliminado');
             $alerta_tipo = "success";
             $alerta_mensaje = $devuelto
                 ? "Arreglo eliminado y materiales devueltos al stock."
@@ -435,6 +479,9 @@ if (isset($_GET['editar_id'])) {
     }
 }
 
+// "Agregar" pulsado mientras se editaba: la página se recarga limpia con el formulario de nuevo registro abierto
+$abrir_nuevo = isset($_GET['nuevo']) && !$editando;
+
 // ---------------- 6. CONSULTAS PARA MOSTRAR ----------------
 // Materiales con su stock actual
 $lista_materiales = [];
@@ -446,6 +493,7 @@ while ($m = mysqli_fetch_assoc($res_mat)) {
         'categoria' => $m['categoria'],
         'cantidad' => (int) $m['cantidad'],
         'unidad' => $m['unidad'],
+        'stock_minimo' => (int) ($m['stock_minimo'] ?? 5),
     ];
 }
 
@@ -525,6 +573,9 @@ function sel($a, $b) {
         <li><a href="../dashboard.php"><i class="fa-solid fa-house"></i> Panel Principal</a></li>
         <li class="active"><a href="arreglos.php"><i class="fa-solid fa-screwdriver-wrench"></i> Arreglos</a></li>
         <li><a href="materiales.php"><i class="fa-solid fa-boxes-stacked"></i> Materiales</a></li>
+        <?php if (strtolower($_SESSION['Rol'] ?? '') === 'administrador'): ?>
+        <li><a href="proveedores.php"><i class="fa-solid fa-truck"></i> Proveedores</a></li>
+        <?php endif; ?>
         <li><a href="mercancia.php"><i class="fa-solid fa-box-open"></i> Mercancía</a></li>
         <li><a href="clientes.php"><i class="fa-solid fa-users"></i> Clientes</a></li>
         <li><a href="configuracion.php"><i class="fa-solid fa-gear"></i> Configuración</a></li>
@@ -540,14 +591,14 @@ function sel($a, $b) {
             <h1>Gestión de Arreglos</h1>
             <p>Registro y seguimiento de reparaciones de calzado.</p>
         </div>
-        <button id="nuevo" type="button" onclick="toggleFormulario()">
+        <button id="nuevo" type="button" onclick="nuevoArreglo()">
             <i class="fa-solid fa-plus"></i>
             Nuevo Arreglo
         </button>
     </header>
 
     <!------------ FORMULARIO (CREAR O EDITAR) ------------>
-    <section class="formulario <?php echo $editando ? '' : 'formulario-oculto'; ?>">
+    <section class="formulario <?php echo ($editando || $abrir_nuevo) ? '' : 'formulario-oculto'; ?>">
         <h2><?php echo $editando ? 'Editar Arreglo' : 'Registrar Arreglo'; ?></h2>
 
         <form action="arreglos.php" method="POST" id="formArreglo">
@@ -632,18 +683,18 @@ function sel($a, $b) {
             <div class="fila">
                 <div class="grupo">
                     <label>Fecha de Ingreso *</label>
-                    <input type="date" name="fecha_ingreso" value="<?php echo htmlspecialchars($ed['fecha_ingreso']); ?>" required>
+                    <input type="date" name="fecha_ingreso" id="fecha_ingreso" min="<?php echo FECHA_MIN; ?>" max="<?php echo date('Y-m-d'); ?>" value="<?php echo htmlspecialchars($ed['fecha_ingreso']); ?>" required>
                 </div>
                 <div class="grupo">
                     <label>Fecha de Entrega</label>
-                    <input type="date" name="fecha_entrega" value="<?php echo htmlspecialchars($ed['fecha_entrega']); ?>">
+                    <input type="date" name="fecha_entrega" id="fecha_entrega" min="<?php echo FECHA_MIN; ?>" max="<?php echo date('Y-m-d', strtotime('+1 year')); ?>" value="<?php echo htmlspecialchars($ed['fecha_entrega']); ?>">
                 </div>
             </div>
 
             <div class="fila">
                 <div class="grupo">
                     <label>Valor del Servicio *</label>
-                    <input type="number" name="valor" min="0" step="any" placeholder="$" value="<?php echo htmlspecialchars($ed['valor']); ?>" required>
+                    <input type="number" name="valor" id="valor" min="1" max="<?php echo VALOR_MAX; ?>" step="any" placeholder="$" value="<?php echo htmlspecialchars($ed['valor']); ?>" required>
                 </div>
                 <div class="grupo">
                     <label>Estado</label>
@@ -718,7 +769,9 @@ function sel($a, $b) {
                             <td><?php echo htmlspecialchars($mat['categoria']); ?></td>
                             <td><?php echo $mat['cantidad'] . ' ' . htmlspecialchars($mat['unidad']); ?></td>
                             <td>
-                                <?php if ($mat['cantidad'] < 5): ?>
+                                <?php if ($mat['cantidad'] <= 0): ?>
+                                    <span class="tag-stock agotado">Agotado</span>
+                                <?php elseif ($mat['cantidad'] <= $mat['stock_minimo']): ?>
                                     <span class="tag-stock bajo">Stock Bajo</span>
                                 <?php else: ?>
                                     <span class="tag-stock ok">Disponible</span>
@@ -820,7 +873,17 @@ const materiales = <?php echo json_encode($lista_materiales, JSON_UNESCAPED_UNIC
 const usadoActual = <?php echo json_encode((object) $usado_actual); ?>;      // lo que ya usa el arreglo en edición
 const filasIniciales = <?php echo json_encode($materiales_edit); ?>;          // materiales del arreglo en edición
 const editando = <?php echo $editando ? 'true' : 'false'; ?>;
+const abrirNuevo = <?php echo $abrir_nuevo ? 'true' : 'false'; ?>;
 const clienteEditar = <?php echo json_encode($cliente_edit, JSON_UNESCAPED_UNICODE); ?>;   // cliente del arreglo en edición
+
+// Botón "Nuevo Arreglo": si se estaba editando, recarga la página limpia en modo "nuevo"
+function nuevoArreglo() {
+    if (editando) {
+        window.location.href = 'arreglos.php?nuevo=1';
+        return;
+    }
+    toggleFormulario();
+}
 
 function toggleFormulario() {
     const form = document.querySelector('.formulario');
@@ -1034,6 +1097,33 @@ function confirmarEliminacion(id) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Fechas: la entrega no puede ser anterior al ingreso
+    const fIngreso = document.getElementById('fecha_ingreso');
+    const fEntrega = document.getElementById('fecha_entrega');
+    function sincronizarFechas() {
+        if (fIngreso.value) {
+            fEntrega.min = fIngreso.value;
+            if (fEntrega.value && fEntrega.value < fIngreso.value) {
+                fEntrega.value = '';
+            }
+        }
+    }
+    fIngreso.addEventListener('change', sincronizarFechas);
+    sincronizarFechas();
+
+    // Valor del servicio: no permite negativos ni signos
+    const inputValor = document.getElementById('valor');
+    inputValor.addEventListener('keydown', (e) => {
+        if (['-', '+', 'e', 'E'].includes(e.key)) {
+            e.preventDefault();
+        }
+    });
+    inputValor.addEventListener('input', () => {
+        if (parseFloat(inputValor.value) < 0) {
+            inputValor.value = '';
+        }
+    });
+
     // Campo de documento: Enter busca, al cambiar el texto se reinicia, al salir del campo busca
     const inputDoc = document.getElementById('nc_documento');
     inputDoc.addEventListener('keydown', (e) => {
@@ -1062,6 +1152,12 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             agregarFilaMaterial();
         }
+        document.querySelector('.formulario').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // Abierto con "Nuevo Arreglo" desde la edición: formulario limpio con una fila de material
+    if (abrirNuevo && !editando) {
+        agregarFilaMaterial();
         document.querySelector('.formulario').scrollIntoView({ behavior: 'smooth' });
     }
 

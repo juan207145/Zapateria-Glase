@@ -230,6 +230,14 @@ $resultado_usuarios = mysqli_query($conexion, "SELECT * FROM iniciodesesion ORDE
                 Materiales
             </a>
         </li>
+        <?php if (strtolower($_SESSION['Rol'] ?? '') === 'administrador'): ?>
+        <li>
+            <a href="proveedores.php">
+                <i class="fa-solid fa-truck"></i>
+                Proveedores
+            </a>
+        </li>
+        <?php endif; ?>
         <li>
             <a href="mercancia.php">
                 <i class="fa-solid fa-box-open"></i>

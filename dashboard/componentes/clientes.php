@@ -191,6 +191,14 @@ $nuevosMes = mysqli_fetch_assoc($qNuevos)['nuevos'] ?? 0;
                 Materiales
             </a>
         </li>
+        <?php if (strtolower($_SESSION['Rol'] ?? '') === 'administrador'): ?>
+        <li>
+            <a href="proveedores.php">
+                <i class="fa-solid fa-truck"></i>
+                Proveedores
+            </a>
+        </li>
+        <?php endif; ?>
 
         <li>
             <a href="mercancia.php">

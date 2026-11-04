@@ -454,6 +454,40 @@ GRID INFERIOR
 .movimientos i{
     color:var(--verde);
 }
+/* =====================================================
+   AGREGAR AL FINAL DE css/mercancia.css
+   IMPORTANTE: pégalo AL FINAL DEL ARCHIVO, después de la última llave "}"
+   de todo (fuera de cualquier @media).
+   Son los estilos que antes estaban dentro de mercancia.php,
+   más los del estado "Agotado".
+===================================================== */
+
+/* Formulario oculto por defecto */
+.formulario-oculto{
+    display:none;
+}
+
+/* Estado: Agotado (cantidad 0) */
+.estado.agotado{
+    background:#f8d7da;
+    color:#721c24;
+}
+
+/* Celda de "no hay datos" */
+.celda-vacia{
+    text-align:center;
+}
+
+/* Ícono de la lista de categorías */
+.icono-categoria{
+    margin-right:8px;
+    color:#6D4C41;
+}
+
+/* Íconos de los últimos movimientos según el tipo */
+.movimientos li i.fa-circle-plus{ color:#2ecc71; }
+.movimientos li i.fa-pen-to-square{ color:#3498db; }
+.movimientos li i.fa-trash-can{ color:#e74c3c; }
 
 /*======================
 RESPONSIVE

@@ -1158,3 +1158,141 @@ main section{
     margin-bottom:30px;
 
 }
+
+/* =====================================================
+   AGREGAR AL FINAL DE css/dashboard.css (fuera de cualquier @media)
+===================================================== */
+
+/* Reloj del encabezado */
+.reloj{
+    font-size:13px;
+    font-weight:500;
+    color:#6D4C41;
+}
+
+/* Textos secundarios dentro de las listas */
+.detalle-secundario{
+    color:#777;
+    font-size:12px;
+    margin-left:6px;
+}
+
+/* Mensaje cuando no hay datos */
+.vacio{
+    text-align:center;
+    color:#777;
+}
+
+/* Íconos de la actividad reciente */
+.actividad li i.tipo-agregado{ color:#2ecc71; }
+.actividad li i.tipo-editado{ color:#3498db; }
+.actividad li i.tipo-eliminado{ color:#e74c3c; }
+
+/* Íconos de proveedores */
+.actividad li i.fa-truck{ color:#6D4C41; }
+
+
+/* Alertas del sistema por nivel */
+.alertas li.critica{ background:#FDEDEC; }
+.alertas li.critica i{ color:#e74c3c; }
+.alertas li.aviso i{ color:#f39c12; }
+.alertas li.ok i{ color:#2ecc71; }
+
+/* Campana de alertas (abajo a la derecha) */
+.campana{
+    position:fixed;
+    right:25px;
+    bottom:25px;
+    z-index:1000;
+    display:flex;
+    align-items:flex-end;
+    gap:12px;
+}
+
+.campana-btn{
+    position:relative;
+    width:58px;
+    height:58px;
+    border:none;
+    border-radius:50%;
+    background:var(--principal);
+    color:#fff;
+    font-size:22px;
+    box-shadow:0 8px 20px rgba(0,0,0,.25);
+    animation:campanaSonar 2.5s ease-in-out infinite;
+}
+
+.campana-btn:hover{
+    background:var(--secundario);
+}
+
+.campana-contador{
+    position:absolute;
+    top:-4px;
+    right:-4px;
+    min-width:22px;
+    height:22px;
+    padding:0 6px;
+    border-radius:11px;
+    background:var(--rojo);
+    color:#fff;
+    font-size:12px;
+    font-weight:600;
+    line-height:22px;
+    text-align:center;
+}
+
+.campana-globo{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    max-width:340px;
+    padding:14px 18px;
+    background:#fff;
+    border-left:5px solid var(--amarillo);
+    border-radius:12px;
+    box-shadow:0 10px 25px rgba(0,0,0,.18);
+    font-size:14px;
+    color:var(--texto);
+    cursor:pointer;
+    opacity:0;
+    transform:translateX(30px);
+    pointer-events:none;
+    transition:.4s;
+}
+
+.campana-globo.critica{ border-left-color:var(--rojo); }
+.campana-globo.critica i{ color:var(--rojo); }
+.campana-globo.aviso i{ color:var(--amarillo); }
+
+.campana-globo.visible{
+    opacity:1;
+    transform:translateX(0);
+    pointer-events:auto;
+}
+
+@keyframes campanaSonar{
+    0%, 100%{ box-shadow:0 8px 20px rgba(0,0,0,.25), 0 0 0 0 rgba(109,76,65,.45); }
+    50%{ box-shadow:0 8px 20px rgba(0,0,0,.25), 0 0 0 14px rgba(109,76,65,0); }
+}
+
+/* Panel de alertas resaltado al llegar desde la campana */
+#panel-alertas.resaltado{
+    box-shadow:0 0 0 3px var(--amarillo), 0 15px 30px rgba(0,0,0,.12);
+}
+
+@media(max-width:600px){
+    .campana-globo{ max-width:220px; font-size:13px; }
+}
+
+/* Cantidad de materiales por proveedor (dashboard) */
+.cantidad-prov{
+    margin-left:auto;
+    padding:4px 12px;
+    border-radius:20px;
+    background:#f3ece8;
+    color:#6D4C41;
+    font-size:12px;
+    font-weight:600;
+    white-space:nowrap;
+}

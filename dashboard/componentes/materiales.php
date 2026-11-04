@@ -3,6 +3,7 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 include '../../conexion.php';
+require_once __DIR__ . '/actividad.php';
 
 // Control de acceso a la sesión
 if (!isset($_SESSION['Usuario'])) {
@@ -19,17 +20,60 @@ $alerta_tipo = "";
 $alerta_mensaje = "";
 $redireccionar = "";
 
-// Categorías disponibles (una sola fuente para el formulario y el filtro)
+// Categorías y unidades permitidas (una sola fuente para formularios, filtros y validación)
 $categorias = ['Suelas', 'Pegantes', 'Hilos', 'Plantillas', 'Accesorios'];
+$unidades = ['Tarros', 'Pares', 'Rollos'];
+
+// Nombre de la columna del NIT en la tabla "materiales".
+// Si en tu base de datos se llama distinto (por ejemplo nit_proveedor), cámbialo SOLO aquí.
+define('COL_NIT', 'nit');
 
 // Registra un movimiento en el historial (si la tabla falla, no rompe la página)
 function registrar_historial($conexion, $detalle, $tipo) {
+    registrar_actividad($conexion, 'Materiales', $detalle, $tipo);
     $stmt = @$conexion->prepare("INSERT INTO historial_materiales (detalle, tipo) VALUES (?, ?)");
     if ($stmt) {
         $stmt->bind_param("ss", $detalle, $tipo);
         @$stmt->execute();
         $stmt->close();
     }
+}
+
+// Valida los datos de un material. Devuelve el mensaje de error, o '' si todo está bien.
+function validar_material($codigo, $nombre, $cantidad, $unidad, $stock_minimo, $unidades) {
+    if ($codigo === '' || $nombre === '' || $cantidad === '' || $unidad === '' || $stock_minimo === '') {
+        return "Por favor completa todos los campos obligatorios.";
+    }
+
+    // Cantidad: solo enteros, 0 o más (sin negativos ni decimales)
+    if (!ctype_digit($cantidad) || (int) $cantidad > 1000000) {
+        return "La cantidad debe ser un número entero igual o mayor que 0.";
+    }
+
+    // Stock mínimo: entero de 0 o más
+    if (!ctype_digit($stock_minimo) || (int) $stock_minimo > 1000000) {
+        return "El stock mínimo debe ser un número entero igual o mayor que 0.";
+    }
+
+    // Unidad: solo las permitidas
+    if (!in_array($unidad, $unidades, true)) {
+        return "La unidad debe ser una de estas: " . implode(', ', $unidades) . ".";
+    }
+
+    return '';
+}
+
+// Busca un proveedor por id. Devuelve ['nombre'=>..., 'nit'=>...] o null.
+function buscar_proveedor($conexion, $proveedor_id) {
+    if ($proveedor_id <= 0) {
+        return null;
+    }
+    $stmt = $conexion->prepare("SELECT nombre, nit FROM proveedores WHERE id = ?");
+    $stmt->bind_param("i", $proveedor_id);
+    $stmt->execute();
+    $fila = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    return $fila ?: null;
 }
 
 // ---------------- 1. ELIMINAR MATERIAL ----------------
@@ -75,14 +119,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_material'])) 
     $categoria = trim($_POST['categoria'] ?? '');
     $cantidad = trim($_POST['cantidad'] ?? '');
     $unidad = trim($_POST['unidad'] ?? '');
-    $proveedor = trim($_POST['proveedor'] ?? '');
+    $stock_minimo = trim($_POST['stock_minimo'] ?? '');
+    $proveedor_id = (int) ($_POST['proveedor_id'] ?? 0);
 
-    // Se valida cantidad con is_numeric para permitir el valor 0
-    if ($codigo !== '' && $nombredelmaterial !== '' && $categoria !== '' && $cantidad !== '' && is_numeric($cantidad) && $unidad !== '' && $proveedor !== '') {
+    $error = validar_material($codigo, $nombredelmaterial, $cantidad, $unidad, $stock_minimo, $unidades);
+    $prov = buscar_proveedor($conexion, $proveedor_id);
+    if ($categoria === '') {
+        $error = "Por favor completa todos los campos obligatorios.";
+    } elseif ($error === '' && $prov === null) {
+        $error = "Selecciona un proveedor registrado.";
+    }
+
+    if ($error === '') {
         $cantidad = (int) $cantidad;
+        $stock_minimo = (int) $stock_minimo;
+        $proveedor = $prov['nombre'];
+        $nit = $prov['nit'];
 
-        $stmt = $conexion->prepare("INSERT INTO materiales (codigo, nombredelmaterial, categoria, cantidad, unidad, proveedor) VALUES (?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("sssiss", $codigo, $nombredelmaterial, $categoria, $cantidad, $unidad, $proveedor);
+        $stmt = $conexion->prepare("INSERT INTO materiales (codigo, nombredelmaterial, categoria, cantidad, unidad, proveedor, " . COL_NIT . ", proveedor_id, stock_minimo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("sssisssii", $codigo, $nombredelmaterial, $categoria, $cantidad, $unidad, $proveedor, $nit, $proveedor_id, $stock_minimo);
 
         if ($stmt->execute()) {
             registrar_historial($conexion, "Ingreso de nuevo material: " . $nombredelmaterial . ".", 'agregado');
@@ -96,7 +151,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_material'])) 
         $redireccionar = "materiales.php";
     } else {
         $alerta_tipo = "warning";
-        $alerta_mensaje = "Por favor completa todos los campos obligatorios.";
+        $alerta_mensaje = $error;
     }
 }
 
@@ -108,14 +163,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['editar_material'])) {
     $categoria = trim($_POST['categoria'] ?? '');
     $cantidad = trim($_POST['cantidad'] ?? '');
     $unidad = trim($_POST['unidad'] ?? '');
-    $proveedor = trim($_POST['proveedor'] ?? '');
+    $stock_minimo = trim($_POST['stock_minimo'] ?? '');
+    $proveedor_id = (int) ($_POST['proveedor_id'] ?? 0);
 
-    if ($id > 0 && $codigo !== '' && $nombredelmaterial !== '' && $categoria !== '' && $cantidad !== '' && is_numeric($cantidad) && $unidad !== '' && $proveedor !== '') {
+    $error = validar_material($codigo, $nombredelmaterial, $cantidad, $unidad, $stock_minimo, $unidades);
+    $prov = buscar_proveedor($conexion, $proveedor_id);
+    if ($id <= 0 || $categoria === '') {
+        $error = "Por favor completa todos los campos obligatorios.";
+    } elseif ($error === '' && $prov === null) {
+        $error = "Selecciona un proveedor registrado.";
+    }
+
+    if ($error === '') {
         $cantidad = (int) $cantidad;
+        $stock_minimo = (int) $stock_minimo;
+        $proveedor = $prov['nombre'];
+        $nit = $prov['nit'];
 
-        $stmt = $conexion->prepare("UPDATE materiales SET codigo=?, nombredelmaterial=?, categoria=?, cantidad=?, unidad=?, proveedor=? WHERE id=?");
-        // Tipos: s s s i s s i  (CORREGIDO: antes era "sssisis")
-        $stmt->bind_param("sssissi", $codigo, $nombredelmaterial, $categoria, $cantidad, $unidad, $proveedor, $id);
+        $stmt = $conexion->prepare("UPDATE materiales SET codigo=?, nombredelmaterial=?, categoria=?, cantidad=?, unidad=?, proveedor=?, " . COL_NIT . "=?, proveedor_id=?, stock_minimo=? WHERE id=?");
+        // Tipos: s s s i s s s i i i
+        $stmt->bind_param("sssisssiii", $codigo, $nombredelmaterial, $categoria, $cantidad, $unidad, $proveedor, $nit, $proveedor_id, $stock_minimo, $id);
 
         if ($stmt->execute()) {
             registrar_historial($conexion, "Modificación en " . $nombredelmaterial . ".", 'editado');
@@ -129,13 +196,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['editar_material'])) {
         $redireccionar = "materiales.php";
     } else {
         $alerta_tipo = "warning";
-        $alerta_mensaje = "Por favor completa todos los campos obligatorios.";
+        $alerta_mensaje = $error;
     }
 }
 
 // ---------------- 4. CARGAR DATOS PARA EDICIÓN ----------------
 $editando = false;
-$edit_id = $edit_codigo = $edit_nombredelmaterial = $edit_categoria = $edit_cantidad = $edit_unidad = $edit_proveedor = "";
+$edit_id = $edit_codigo = $edit_nombredelmaterial = $edit_categoria = $edit_cantidad = $edit_unidad = $edit_proveedor = $edit_nit = $edit_proveedor_id = "";
+$edit_stock_minimo = "5";
 
 if (isset($_GET['editar_id'])) {
     $id_editar = (int) $_GET['editar_id'];
@@ -145,7 +213,7 @@ if (isset($_GET['editar_id'])) {
     $res = $stmt->get_result();
     if ($material_edit = $res->fetch_assoc()) {
         $editando = true;
-        // CORREGIDO: la columna se llama "Id" en la BD; se acepta "Id" o "id"
+        // La columna se llama "Id" en la BD; se acepta "Id" o "id"
         $edit_id = $material_edit['Id'] ?? $material_edit['id'] ?? '';
         $edit_codigo = $material_edit['codigo'];
         $edit_nombredelmaterial = $material_edit['nombredelmaterial'];
@@ -153,19 +221,31 @@ if (isset($_GET['editar_id'])) {
         $edit_cantidad = $material_edit['cantidad'];
         $edit_unidad = $material_edit['unidad'];
         $edit_proveedor = $material_edit['proveedor'];
+        $edit_nit = $material_edit[COL_NIT] ?? '';
+        $edit_proveedor_id = (string) ($material_edit['proveedor_id'] ?? '');
+        $edit_stock_minimo = (string) ($material_edit['stock_minimo'] ?? '5');
     }
     $stmt->close();
 }
+
+// "Agregar" pulsado mientras se editaba: la página se recarga limpia con el formulario de nuevo registro abierto
+$abrir_nuevo = isset($_GET['nuevo']) && !$editando;
 
 // ---------------- 5. CONSULTAS DE ESTADÍSTICAS ----------------
 $totalmateriales = mysqli_query($conexion, "SELECT COUNT(*) AS total FROM materiales");
 $materialesregistrados = mysqli_fetch_assoc($totalmateriales)['total'] ?? 0;
 
-$materialesporagotarse = mysqli_query($conexion, "SELECT COUNT(*) AS por_agotarse FROM materiales WHERE cantidad < 5");
+// Stock bajo: quedan entre 1 y 4. Agotado: quedan 0.
+$materialesporagotarse = mysqli_query($conexion, "SELECT COUNT(*) AS por_agotarse FROM materiales WHERE cantidad > 0 AND cantidad <= stock_minimo");
 $materialesagotarse = mysqli_fetch_assoc($materialesporagotarse)['por_agotarse'] ?? 0;
 
+$materialesagotados_q = mysqli_query($conexion, "SELECT COUNT(*) AS agotados FROM materiales WHERE cantidad <= 0");
+$materialesagotados = mysqli_fetch_assoc($materialesagotados_q)['agotados'] ?? 0;
+
 $resultado_materiales = mysqli_query($conexion, "SELECT * FROM materiales ORDER BY id DESC");
-$resultado_proveedores = mysqli_query($conexion, "SELECT DISTINCT proveedor FROM materiales WHERE proveedor <> '' ORDER BY proveedor ASC");
+$resultado_proveedores = mysqli_query($conexion, "SELECT nit, nombre AS proveedor FROM proveedores ORDER BY id DESC LIMIT 8");
+$lista_proveedores = mysqli_query($conexion, "SELECT id, nombre, nit FROM proveedores ORDER BY nombre ASC");
+$opciones_proveedores = $lista_proveedores ? mysqli_fetch_all($lista_proveedores, MYSQLI_ASSOC) : [];
 $resultado_historial = mysqli_query($conexion, "SELECT * FROM historial_materiales ORDER BY id DESC LIMIT 5");
 ?>
 <!DOCTYPE html>
@@ -178,57 +258,6 @@ $resultado_historial = mysqli_query($conexion, "SELECT * FROM historial_material
     <link rel="stylesheet" href="/Zapateria-Glase/css/materiales.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <style>
-        .formulario-oculto { display: none; }
-        .movimientos li i.fa-circle-plus { color: #2ecc71; }
-        .movimientos li i.fa-pen-to-square { color: #3498db; }
-        .movimientos li i.fa-trash-can { color: #e74c3c; }
-
-        /* Proveedores + Últimos movimientos */
-        .paneles-inferiores {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 25px;
-            margin-top: 25px;
-        }
-        .paneles-inferiores .caja {
-            background: #fff;
-            border-radius: 20px;
-            padding: 28px 25px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.06);
-            overflow-x: auto;
-        }
-        .paneles-inferiores .caja h2 {
-            color: #6D4C41;
-            font-size: 20px;
-            margin-bottom: 20px;
-        }
-        .tabla-proveedores { width: 100%; border-collapse: collapse; }
-        .tabla-proveedores th {
-            background: #f7f7f7;
-            color: #6D4C41;
-            text-align: left;
-            padding: 14px 15px;
-            border-bottom: 2px solid #eee;
-        }
-        .tabla-proveedores td {
-            padding: 14px 15px;
-            border-bottom: 1px solid #eee;
-        }
-        .tabla-proveedores td i { color: #6D4C41; margin-right: 10px; }
-        .movimientos { list-style: none; margin: 0; padding: 0; }
-        .movimientos li {
-            padding: 9px 0;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .movimientos li strong { margin-right: 4px; }
-        @media (max-width: 900px) {
-            .paneles-inferiores { grid-template-columns: 1fr; }
-        }
-    </style>
 </head>
 
 <body>
@@ -261,6 +290,9 @@ $resultado_historial = mysqli_query($conexion, "SELECT * FROM historial_material
         <li><a href="../dashboard.php"><i class="fa-solid fa-house"></i> Panel Principal</a></li>
         <li><a href="arreglos.php"><i class="fa-solid fa-screwdriver-wrench"></i> Arreglos</a></li>
         <li class="active"><a href="materiales.php"><i class="fa-solid fa-boxes-stacked"></i> Materiales</a></li>
+        <?php if (strtolower($_SESSION['Rol'] ?? '') === 'administrador'): ?>
+        <li><a href="proveedores.php"><i class="fa-solid fa-truck"></i> Proveedores</a></li>
+        <?php endif; ?>
         <li><a href="mercancia.php"><i class="fa-solid fa-box-open"></i> Mercancía</a></li>
         <li><a href="clientes.php"><i class="fa-solid fa-users"></i> Clientes</a></li>
         <li><a href="configuracion.php"><i class="fa-solid fa-gear"></i> Configuración</a></li>
@@ -275,15 +307,15 @@ $resultado_historial = mysqli_query($conexion, "SELECT * FROM historial_material
         <h1>Materiales</h1>
         <p>Control y administración de materiales utilizados en la zapatería.</p>
     </div>
-    <button class="btnAgregar" onclick="toggleFormulario()">
+    <button class="btnAgregar" onclick="agregarNuevo()">
         <i class="fa-solid fa-plus"></i> Agregar Material
     </button>
 </header>
 
 <!-------------------- FORMULARIO (CREAR O EDITAR) -------------------->
-<section class="formulario <?php echo $editando ? '' : 'formulario-oculto'; ?>">
+<section class="formulario <?php echo ($editando || $abrir_nuevo) ? '' : 'formulario-oculto'; ?>">
     <h2><?php echo $editando ? 'Editar Material' : 'Registrar Material'; ?></h2>
-    <form action="materiales.php" method="POST">
+    <form action="materiales.php" method="POST" id="formMaterial">
         <?php if ($editando): ?>
             <input type="hidden" name="id" value="<?php echo htmlspecialchars($edit_id); ?>">
         <?php endif; ?>
@@ -303,7 +335,7 @@ $resultado_historial = mysqli_query($conexion, "SELECT * FROM historial_material
             <div class="grupo">
                 <label>Categoría *</label>
                 <select name="categoria" required>
-                    <option value="" disabled <?php echo ($edit_categoria === '') ? 'selected' : ''; ?>>Seleccione categoría</option>
+                    <option value="" disabled <?php echo in_array($edit_categoria, $categorias, true) ? '' : 'selected'; ?>>Seleccione categoría</option>
                     <?php foreach ($categorias as $cat): ?>
                         <option value="<?php echo htmlspecialchars($cat); ?>" <?php echo ($edit_categoria === $cat) ? 'selected' : ''; ?>>
                             <?php echo htmlspecialchars($cat); ?>
@@ -313,18 +345,44 @@ $resultado_historial = mysqli_query($conexion, "SELECT * FROM historial_material
             </div>
             <div class="grupo">
                 <label>Cantidad *</label>
-                <input type="number" name="cantidad" min="0" placeholder="Ej: 25" value="<?php echo htmlspecialchars($edit_cantidad); ?>" required>
+                <input type="number" name="cantidad" id="cantidad" min="0" step="1" placeholder="Ej: 25" value="<?php echo htmlspecialchars($edit_cantidad); ?>" required>
             </div>
         </div>
 
         <div class="fila">
             <div class="grupo">
                 <label>Unidad *</label>
-                <input type="text" name="unidad" placeholder="Ej: Tarros, Pares, Rollos" value="<?php echo htmlspecialchars($edit_unidad); ?>" required>
+                <select name="unidad" required>
+                    <option value="" disabled <?php echo in_array($edit_unidad, $unidades, true) ? '' : 'selected'; ?>>Seleccione unidad</option>
+                    <?php foreach ($unidades as $uni): ?>
+                        <option value="<?php echo htmlspecialchars($uni); ?>" <?php echo ($edit_unidad === $uni) ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($uni); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
             </div>
             <div class="grupo">
+                <label>Stock mínimo *</label>
+                <input type="number" name="stock_minimo" id="stock_minimo" min="0" step="1" placeholder="Ej: 5"
+                       title="Cuando las existencias sean iguales o menores a este valor se genera una alerta"
+                       value="<?php echo htmlspecialchars($edit_stock_minimo); ?>" required>
+            </div>
+        </div>
+
+        <div class="fila">
+            <div class="grupo">
                 <label>Proveedor *</label>
-                <input type="text" name="proveedor" placeholder="Ej: Distribuidora Calzado S.A." value="<?php echo htmlspecialchars($edit_proveedor); ?>" required>
+                <select name="proveedor_id" required>
+                    <option value="" disabled <?php echo ($edit_proveedor_id === '') ? 'selected' : ''; ?>>Seleccione proveedor</option>
+                    <?php foreach ($opciones_proveedores as $op): ?>
+                        <option value="<?php echo (int) $op['id']; ?>" <?php echo ((string) $op['id'] === (string) $edit_proveedor_id) ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($op['nombre'] . ' — NIT ' . $op['nit']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <?php if (!$opciones_proveedores): ?>
+                    <small>Primero registra un proveedor en el módulo <a href="proveedores.php">Proveedores</a>.</small>
+                <?php endif; ?>
             </div>
         </div>
 
@@ -340,7 +398,7 @@ $resultado_historial = mysqli_query($conexion, "SELECT * FROM historial_material
                 <button type="submit" name="guardar_material" class="guardar">
                     <i class="fa-solid fa-floppy-disk"></i> Guardar
                 </button>
-                <button type="button" class="cancelar" onclick="toggleFormulario()">
+                <button type="button" class="cancelar" onclick="cancelarFormulario()">
                     <i class="fa-solid fa-xmark"></i> Cancelar
                 </button>
             <?php endif; ?>
@@ -364,14 +422,27 @@ $resultado_historial = mysqli_query($conexion, "SELECT * FROM historial_material
             <p>Stock Bajo</p>
         </div>
     </div>
+    <div class="card">
+        <i class="fa-solid fa-ban"></i>
+        <div>
+            <h2><?php echo $materialesagotados; ?></h2>
+            <p>Agotados</p>
+        </div>
+    </div>
 </section>
 
 <!-------------------- BUSCADOR Y FILTRO -------------------->
 <section class="busqueda">
     <div class="buscar">
         <i class="fa-solid fa-magnifying-glass"></i>
-        <input type="text" id="buscar" placeholder="Buscar material...">
+        <input type="text" id="buscar" placeholder="Buscar por código, material, proveedor o NIT...">
     </div>
+    <select id="filtroProveedor">
+        <option value="todos">Todos los proveedores</option>
+        <?php foreach ($opciones_proveedores as $op): ?>
+            <option value="<?php echo htmlspecialchars($op['nombre']); ?>"><?php echo htmlspecialchars($op['nombre']); ?></option>
+        <?php endforeach; ?>
+    </select>
     <select id="filtroCategoria">
         <option value="todas">Todas las categorías</option>
         <?php foreach ($categorias as $cat): ?>
@@ -394,6 +465,7 @@ $resultado_historial = mysqli_query($conexion, "SELECT * FROM historial_material
         <th>Cantidad</th>
         <th>Unidad</th>
         <th>Proveedor</th>
+        <th>NIT</th>
         <th>Estado</th>
         <th>Acciones</th>
     </tr>
@@ -402,8 +474,10 @@ $resultado_historial = mysqli_query($conexion, "SELECT * FROM historial_material
     <?php
     if ($resultado_materiales && mysqli_num_rows($resultado_materiales) > 0):
         while ($row = mysqli_fetch_assoc($resultado_materiales)):
-            // CORREGIDO: la columna en la BD se llama "Id" (mayúscula). Se acepta "Id" o "id".
+            // La columna en la BD se llama "Id" (mayúscula). Se acepta "Id" o "id".
             $id_val = $row['Id'] ?? $row['id'] ?? '';
+            $cant_fila = (int) ($row['cantidad'] ?? 0);
+            $min_fila = (int) ($row['stock_minimo'] ?? 5);
     ?>
             <tr>
                 <td><?php echo htmlspecialchars($row['codigo'] ?? ''); ?></td>
@@ -412,8 +486,15 @@ $resultado_historial = mysqli_query($conexion, "SELECT * FROM historial_material
                 <td><?php echo htmlspecialchars($row['cantidad'] ?? ''); ?></td>
                 <td><?php echo htmlspecialchars($row['unidad'] ?? ''); ?></td>
                 <td><?php echo htmlspecialchars($row['proveedor'] ?? ''); ?></td>
+                <?php
+                $nit_fila = trim((string) ($row[COL_NIT] ?? ''));
+                $nit_fila = ($nit_fila === '' || $nit_fila === '0') ? '—' : $nit_fila;
+                ?>
+                <td><?php echo htmlspecialchars($nit_fila); ?></td>
                 <td>
-                    <?php if (isset($row['cantidad']) && $row['cantidad'] < 5): ?>
+                    <?php if ($cant_fila <= 0): ?>
+                        <span class="estado agotado">Agotado</span>
+                    <?php elseif ($cant_fila <= $min_fila): ?>
                         <span class="estado bajo">Stock Bajo</span>
                     <?php else: ?>
                         <span class="estado disponible">Disponible</span>
@@ -433,7 +514,7 @@ $resultado_historial = mysqli_query($conexion, "SELECT * FROM historial_material
         <?php endwhile; ?>
     <?php else: ?>
         <tr>
-            <td colspan="8" style="text-align: center;">No hay materiales registrados en el inventario.</td>
+            <td colspan="9" class="celda-vacia">No hay materiales registrados en el inventario.</td>
         </tr>
     <?php endif; ?>
 </tbody>
@@ -447,19 +528,26 @@ $resultado_historial = mysqli_query($conexion, "SELECT * FROM historial_material
         <table class="tabla-proveedores">
             <thead>
                 <tr>
-                    <th>Proveedor Disponible</th>
+                    <th>NIT</th>
+                    <th>Proveedor</th>
                 </tr>
             </thead>
             <tbody>
                 <?php if ($resultado_proveedores && mysqli_num_rows($resultado_proveedores) > 0): ?>
                     <?php while ($prov = mysqli_fetch_assoc($resultado_proveedores)): ?>
                         <tr>
+                            <?php
+                            // Los materiales antiguos tienen NIT vacío o 0: se muestra un guion
+                            $nit_prov = trim((string) ($prov['nit'] ?? ''));
+                            $nit_mostrar = ($nit_prov === '' || $nit_prov === '0') ? '—' : $nit_prov;
+                            ?>
+                            <td><?php echo htmlspecialchars($nit_mostrar); ?></td>
                             <td><i class="fa-solid fa-truck"></i><?php echo htmlspecialchars($prov['proveedor']); ?></td>
                         </tr>
                     <?php endwhile; ?>
                 <?php else: ?>
                     <tr>
-                        <td style="text-align:center;">No hay proveedores registrados.</td>
+                        <td colspan="2" class="celda-vacia">No hay proveedores registrados.</td>
                     </tr>
                 <?php endif; ?>
             </tbody>
@@ -502,12 +590,32 @@ $resultado_historial = mysqli_query($conexion, "SELECT * FROM historial_material
 </main>
 
 <script>
+const editando = <?php echo $editando ? 'true' : 'false'; ?>;
+
+// Botón "Agregar Material": si se estaba editando, recarga la página limpia en modo "nuevo"
+function agregarNuevo() {
+    if (editando) {
+        window.location.href = 'materiales.php?nuevo=1';
+        return;
+    }
+    toggleFormulario();
+}
+
 function toggleFormulario() {
     const form = document.querySelector('.formulario');
     form.classList.toggle('formulario-oculto');
     if (!form.classList.contains('formulario-oculto')) {
         form.scrollIntoView({ behavior: 'smooth' });
+    } else if (!editando) {
+        // Al ocultar el formulario de "nuevo material" se borra lo escrito
+        document.getElementById('formMaterial').reset();
     }
+}
+
+// Cancelar un registro nuevo: limpia todos los campos y oculta el formulario
+function cancelarFormulario() {
+    document.getElementById('formMaterial').reset();
+    document.querySelector('.formulario').classList.add('formulario-oculto');
 }
 
 function confirmarEliminacion(id) {
@@ -529,41 +637,61 @@ function confirmarEliminacion(id) {
 
 document.addEventListener("DOMContentLoaded", () => {
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.has('editar_id')) {
+    if (urlParams.has('editar_id') || urlParams.has('nuevo')) {
         const form = document.querySelector('.formulario');
         if (form) {
             form.scrollIntoView({ behavior: 'smooth' });
         }
     }
 
+    // ----- Restricciones de los campos -----
+    // Cantidad y stock mínimo: solo enteros positivos (sin signo menos, punto ni "e")
+    ['cantidad', 'stock_minimo'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('keydown', (e) => {
+            if (['-', '+', 'e', 'E', '.', ','].includes(e.key)) {
+                e.preventDefault();
+            }
+        });
+        el.addEventListener('input', () => {
+            const limpio = el.value.replace(/\D/g, '');
+            if (el.value !== limpio) {
+                el.value = limpio;
+            }
+        });
+    });
+
+    // ----- Buscador y filtros de la tabla (categoría y proveedor) -----
     const inputBuscar = document.getElementById("buscar");
     const selectCategoria = document.getElementById("filtroCategoria");
+    const selectProveedor = document.getElementById("filtroProveedor");
     const filas = document.querySelectorAll("#tablaMateriales tr");
 
     function filtrarTabla() {
         const textoBusqueda = inputBuscar ? inputBuscar.value.toLowerCase() : "";
         const categoriaSeleccionada = selectCategoria ? selectCategoria.value.toLowerCase() : "todas";
+        const proveedorSeleccionado = selectProveedor ? selectProveedor.value.toLowerCase() : "todos";
 
         filas.forEach(fila => {
             const celdas = fila.getElementsByTagName("td");
-            if (celdas.length < 3) return;
+            if (celdas.length < 6) return;
 
             const textoFila = fila.textContent.toLowerCase();
             const categoriaFila = celdas[2].textContent.toLowerCase().trim();
+            const proveedorFila = celdas[5].textContent.toLowerCase().trim();
 
             const coincideTexto = textoFila.includes(textoBusqueda);
             const coincideCategoria = (categoriaSeleccionada === "todas") || (categoriaFila === categoriaSeleccionada);
+            const coincideProveedor = (proveedorSeleccionado === "todos") || (proveedorFila === proveedorSeleccionado);
 
-            fila.style.display = (coincideTexto && coincideCategoria) ? "" : "none";
+            fila.style.display = (coincideTexto && coincideCategoria && coincideProveedor) ? "" : "none";
         });
     }
 
-    if (inputBuscar) {
-        inputBuscar.addEventListener("keyup", filtrarTabla);
-    }
-    if (selectCategoria) {
-        selectCategoria.addEventListener("change", filtrarTabla);
-    }
+    if (inputBuscar) inputBuscar.addEventListener("keyup", filtrarTabla);
+    if (selectCategoria) selectCategoria.addEventListener("change", filtrarTabla);
+    if (selectProveedor) selectProveedor.addEventListener("change", filtrarTabla);
 });
 </script>
 </body>
