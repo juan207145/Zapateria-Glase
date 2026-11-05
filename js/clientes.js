@@ -1,5 +1,3 @@
-
-
 document.addEventListener("DOMContentLoaded", () => {
 
     //====================================
@@ -165,3 +163,42 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
 });
+
+//==============================
+// MENÚ RESPONSIVO (botón de tres rayas)
+// Usa delegación de eventos: funciona aunque el script cargue antes o después del botón.
+//==============================
+(function () {
+    if (window.__menuListo) return;
+    window.__menuListo = true;
+
+    function el(id) { return document.getElementById(id); }
+
+    function cambiar(abrir) {
+        const menu = document.querySelector('.sidebar');
+        const fondo = el('menuOverlay');
+        const boton = el('menuToggle');
+        if (!menu) return;
+        menu.classList.toggle('abierto', abrir);
+        if (fondo) fondo.classList.toggle('visible', abrir);
+        if (boton) boton.innerHTML = abrir ? '<i class="fa-solid fa-xmark"></i>' : '<i class="fa-solid fa-bars"></i>';
+    }
+
+    document.addEventListener('click', function (e) {
+        const menu = document.querySelector('.sidebar');
+        if (!menu) return;
+        if (e.target.closest('#menuToggle')) {
+            cambiar(!menu.classList.contains('abierto'));
+        } else if (e.target.closest('#menuOverlay') || e.target.closest('.sidebar a')) {
+            cambiar(false);
+        }
+    });
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') cambiar(false);
+    });
+
+    window.addEventListener('resize', function () {
+        if (window.innerWidth > 900) cambiar(false);
+    });
+})();

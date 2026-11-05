@@ -537,4 +537,31 @@ RESPONSIVE
         gap:15px;
         align-items:flex-start;
     }
+    /* Pegar al FINAL de css/mercancia.css */
+/* ===== Menú responsivo (móvil/tablet): botón de tres rayas ===== */
+.menu-toggle, .menu-overlay{ display:none; }
+@media (max-width:900px){
+    .menu-toggle{
+        display:flex; align-items:center; justify-content:center;
+        position:fixed; top:14px; left:14px; z-index:2100;
+        width:46px; height:46px; border:none; border-radius:12px;
+        background:#6D4C41; color:#fff; font-size:20px; cursor:pointer;
+        box-shadow:0 6px 16px rgba(0,0,0,.25);
+    }
+    .menu-overlay{
+        display:block; position:fixed; inset:0; z-index:1999;
+        background:rgba(0,0,0,.45); opacity:0; pointer-events:none; transition:.3s;
+    }
+    .menu-overlay.visible{ opacity:1; pointer-events:auto; }
+    .sidebar{
+        width:270px !important; max-width:82vw;
+        transform:translateX(-105%); animation:none !important;
+        z-index:2000 !important; overflow-y:auto; transition:transform .3s ease;
+        box-shadow:none;
+    }
+    .sidebar.abierto{ transform:translateX(0); box-shadow:0 0 40px rgba(0,0,0,.35); }
+    .sidebar .logo h2{ display:block !important; }
+    .sidebar a{ font-size:15px !important; justify-content:flex-start !important; white-space:nowrap; }
+    main{ margin-left:0 !important; width:100% !important; padding:74px 16px 24px !important; min-width:0; }
+}
 }

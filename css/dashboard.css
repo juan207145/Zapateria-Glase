@@ -1296,3 +1296,163 @@ main section{
     font-weight:600;
     white-space:nowrap;
 }
+
+/* Panel de notificaciones agrupadas (se abre con la campana) */
+.notif-panel{
+    position:fixed;
+    right:25px;
+    bottom:100px;
+    z-index:1001;
+    width:380px;
+    max-width:calc(100vw - 30px);
+    max-height:calc(100vh - 130px);
+    display:flex;
+    flex-direction:column;
+    background:#fff;
+    border-radius:20px;
+    box-shadow:0 20px 50px rgba(0,0,0,.28);
+    overflow:hidden;
+    opacity:0;
+    transform:translateY(20px) scale(.97);
+    pointer-events:none;
+    transition:.25s;
+}
+
+.notif-panel.abierto{
+    opacity:1;
+    transform:translateY(0) scale(1);
+    pointer-events:auto;
+}
+
+.notif-cabecera{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:18px 20px;
+    background:var(--principal);
+    color:#fff;
+}
+
+.notif-cabecera strong{ display:block; font-size:18px; }
+.notif-cabecera strong i{ margin-right:8px; }
+.notif-cabecera span{ font-size:13px; opacity:.85; }
+
+.notif-cerrar{
+    width:34px;
+    height:34px;
+    border:none;
+    border-radius:50%;
+    background:rgba(255,255,255,.18);
+    color:#fff;
+    font-size:16px;
+    cursor:pointer;
+}
+.notif-cerrar:hover{ background:rgba(255,255,255,.32); }
+
+.notif-cuerpo{
+    flex:1;
+    overflow-y:auto;
+    padding:14px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+}
+
+.notif-grupo{
+    border:1px solid var(--borde);
+    border-radius:14px;
+    overflow:hidden;
+}
+
+.notif-grupo-titulo{
+    width:100%;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:12px 14px;
+    border:none;
+    background:#faf8f6;
+    font-family:inherit;
+    font-size:14px;
+    font-weight:600;
+    color:var(--texto);
+    cursor:pointer;
+    text-align:left;
+}
+
+.notif-grupo.critica .notif-grupo-titulo > i:first-child{ color:var(--rojo); }
+.notif-grupo.aviso .notif-grupo-titulo > i:first-child{ color:var(--amarillo); }
+
+.notif-grupo-titulo span{ flex:1; }
+
+.notif-grupo-titulo em{
+    font-style:normal;
+    min-width:24px;
+    padding:2px 8px;
+    border-radius:12px;
+    background:var(--principal);
+    color:#fff;
+    font-size:12px;
+    text-align:center;
+}
+
+.notif-flecha{ font-size:12px; color:var(--gris); transition:.2s; }
+.notif-grupo.cerrado .notif-flecha{ transform:rotate(-90deg); }
+
+.notif-grupo ul{ list-style:none; margin:0; padding:0; }
+.notif-grupo.cerrado ul{ display:none; }
+
+.notif-grupo li{
+    padding:10px 14px;
+    font-size:13px;
+    line-height:1.4;
+    color:var(--texto);
+    border-top:1px solid var(--borde);
+}
+
+.notif-grupo.critica li{ background:#FDEDEC; }
+
+.notif-pie{
+    padding:12px 20px;
+    text-align:center;
+    border-top:1px solid var(--borde);
+}
+
+.notif-pie a{
+    font-size:13px;
+    font-weight:600;
+    color:var(--principal);
+    text-decoration:none;
+}
+.notif-pie a:hover{ text-decoration:underline; }
+
+@media(max-width:600px){
+    .notif-panel{ right:15px; bottom:90px; }
+}
+
+/* ===== Menú responsivo (móvil/tablet): botón de tres rayas ===== */
+.menu-toggle, .menu-overlay{ display:none; }
+@media (max-width:900px){
+    .menu-toggle{
+        display:flex; align-items:center; justify-content:center;
+        position:fixed; top:14px; left:14px; z-index:2100;
+        width:46px; height:46px; border:none; border-radius:12px;
+        background:#6D4C41; color:#fff; font-size:20px; cursor:pointer;
+        box-shadow:0 6px 16px rgba(0,0,0,.25);
+    }
+    .menu-overlay{
+        display:block; position:fixed; inset:0; z-index:1999;
+        background:rgba(0,0,0,.45); opacity:0; pointer-events:none; transition:.3s;
+    }
+    .menu-overlay.visible{ opacity:1; pointer-events:auto; }
+    .sidebar{
+        width:270px !important; max-width:82vw;
+        transform:translateX(-105%); animation:none !important;
+        z-index:2000 !important; overflow-y:auto; transition:transform .3s ease;
+        box-shadow:none;
+    }
+    .sidebar.abierto{ transform:translateX(0); box-shadow:0 0 40px rgba(0,0,0,.35); }
+    .sidebar .logo h2{ display:block !important; }
+    .sidebar a{ font-size:15px !important; justify-content:flex-start !important; white-space:nowrap; }
+    main{ margin-left:0 !important; width:100% !important; padding:74px 16px 24px !important; min-width:0; }
+}

@@ -151,6 +151,7 @@ FORMULARIO
 }
 
 .grupo input,
+.grupo select,
 .grupo textarea{
     padding:12px;
     border:1px solid #ddd;
@@ -373,20 +374,55 @@ RESPONSIVE
     }
 }
 
-@media(max-width:800px){
+/* ===== Menú responsivo (móvil/tablet): botón de tres rayas ===== */
+.menu-toggle, .menu-overlay{ display:none; }
+@media (max-width:900px){
+    .menu-toggle{
+        display:flex; align-items:center; justify-content:center;
+        position:fixed; top:14px; left:14px; z-index:2100;
+        width:46px; height:46px; border:none; border-radius:12px;
+        background:#6D4C41; color:#fff; font-size:20px; cursor:pointer;
+        box-shadow:0 6px 16px rgba(0,0,0,.25);
+    }
+    .menu-overlay{
+        display:block; position:fixed; inset:0; z-index:1999;
+        background:rgba(0,0,0,.45); opacity:0; pointer-events:none; transition:.3s;
+    }
+    .menu-overlay.visible{ opacity:1; pointer-events:auto; }
     .sidebar{
-        width:80px;
+        width:270px !important; max-width:82vw;
+        transform:translateX(-105%); animation:none !important;
+        z-index:2000 !important; overflow-y:auto; transition:transform .3s ease;
+        box-shadow:none;
     }
+    .sidebar.abierto{ transform:translateX(0); box-shadow:0 0 40px rgba(0,0,0,.35); }
+    .sidebar .logo h2{ display:block !important; }
+    .sidebar a{ font-size:15px !important; justify-content:flex-start !important; white-space:nowrap; }
+    main{ margin-left:0 !important; width:100% !important; padding:74px 16px 24px !important; min-width:0; }
+}
 
-    .sidebar h2{
-        display:none;
-    }
-
-    .sidebar a{
-        justify-content:center;
-    }
-
-    main{
-        margin-left:80px;
-    }
+/* Lista de localidad con el mismo aspecto que los campos de texto */
+.formulario .grupo select,
+.grupo select{
+    width:100% !important;
+    height:46px !important;
+    padding:0 40px 0 14px !important;
+    border:1px solid #e0dcd6 !important;
+    border-radius:10px !important;
+    background-color:#fff !important;
+    color:#333 !important;
+    font-family:inherit !important;
+    font-size:13px !important;
+    outline:none !important;
+    cursor:pointer !important;
+    appearance:none !important;
+    -webkit-appearance:none !important;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' fill='none' stroke='%236b4f43' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    background-repeat:no-repeat !important;
+    background-position:right 14px center !important;
+    transition:border-color .2s, box-shadow .2s !important;
+}
+.grupo select:focus{
+    border-color:#6b4f43 !important;
+    box-shadow:0 0 0 3px rgba(107,79,67,.12) !important;
 }

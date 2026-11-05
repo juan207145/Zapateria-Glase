@@ -24,7 +24,7 @@ if (isset($_GET['buscar_documento'])) {
     $respuesta = ['encontrado' => false];
 
     if ($doc !== '') {
-        $stmt = $conexion->prepare("SELECT id, nombres, documento, telefono, correo, direccion, ciudad, observaciones FROM clientes WHERE documento = ? LIMIT 1");
+        $stmt = $conexion->prepare("SELECT id, nombres, documento, telefono, correo, direccion, localidad, observaciones FROM clientes WHERE documento = ? LIMIT 1");
         $stmt->bind_param("s", $doc);
         $stmt->execute();
         $c = $stmt->get_result()->fetch_assoc();
@@ -44,6 +44,9 @@ $redireccionar = "";
 $estados_validos = ['Pendiente', 'En Proceso', 'Finalizado'];
 $tipos_calzado = ['Tenis', 'Botas', 'Zapato Formal', 'Sandalias', 'Tacones'];
 $tipos_arreglo = ['Cambio de Suela', 'Costura', 'Pegado', 'Cambio de Tacón', 'Limpieza'];
+
+// Las 20 localidades de Bogotá + 'Otro' para quien no encaje en ninguna
+$localidades_bogota = ['Usaquén', 'Chapinero', 'Santa Fe', 'San Cristóbal', 'Usme', 'Tunjuelito', 'Bosa', 'Kennedy', 'Fontibón', 'Engativá', 'Suba', 'Barrios Unidos', 'Teusaquillo', 'Los Mártires', 'Antonio Nariño', 'Puente Aranda', 'La Candelaria', 'Rafael Uribe Uribe', 'Ciudad Bolívar', 'Sumapaz', 'Otro'];
 
 // ---------------- FUNCIONES AUXILIARES ----------------
 
@@ -77,6 +80,7 @@ function leer_usos() {
 // Devuelve el id del cliente: el seleccionado o uno nuevo registrado con todos sus datos.
 // Debe llamarse dentro de una transacción.
 function resolver_cliente($conexion) {
+    global $localidades_bogota;
     $modo = $_POST['modo_cliente'] ?? 'existente';
 
     if ($modo === 'nuevo') {
@@ -85,11 +89,14 @@ function resolver_cliente($conexion) {
         $telefono = trim($_POST['nc_telefono'] ?? '');
         $correo = trim($_POST['nc_correo'] ?? '');
         $direccion = trim($_POST['nc_direccion'] ?? '');
-        $ciudad = trim($_POST['nc_ciudad'] ?? '');
+        $localidad = trim($_POST['nc_localidad'] ?? '');
         $observaciones = trim($_POST['nc_observaciones'] ?? '');
 
         if ($nombres === '' || $documento === '' || $telefono === '') {
             throw new Exception("Para registrar el cliente completa Nombres, Documento y Teléfono.");
+        }
+        if (!in_array($localidad, $localidades_bogota, true)) {
+            throw new Exception("Selecciona una localidad válida de Bogotá para el cliente.");
         }
 
         // Evitar duplicados por documento
@@ -102,8 +109,8 @@ function resolver_cliente($conexion) {
             throw new Exception("Ya existe un cliente con el documento " . $documento . " (" . $dup['nombres'] . "). Selecciónalo de la lista.");
         }
 
-        $stmt = $conexion->prepare("INSERT INTO clientes (nombres, documento, telefono, correo, direccion, ciudad, observaciones) VALUES (?, ?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("sssssss", $nombres, $documento, $telefono, $correo, $direccion, $ciudad, $observaciones);
+        $stmt = $conexion->prepare("INSERT INTO clientes (nombres, documento, telefono, correo, direccion, localidad, observaciones) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("sssssss", $nombres, $documento, $telefono, $correo, $direccion, $localidad, $observaciones);
         $stmt->execute();
         $nuevo_id = $conexion->insert_id;
         $stmt->close();
@@ -500,7 +507,7 @@ while ($m = mysqli_fetch_assoc($res_mat)) {
 // Cliente del arreglo en edición (para precargar sus datos)
 $cliente_edit = null;
 if ($editando && $ed['cliente_id'] !== '') {
-    $stmtCE = $conexion->prepare("SELECT id, nombres, documento, telefono, correo, direccion, ciudad, observaciones FROM clientes WHERE id = ?");
+    $stmtCE = $conexion->prepare("SELECT id, nombres, documento, telefono, correo, direccion, localidad, observaciones FROM clientes WHERE id = ?");
     $stmtCE->bind_param("i", $ed['cliente_id']);
     $stmtCE->execute();
     $cliente_edit = $stmtCE->get_result()->fetch_assoc() ?: null;
@@ -538,7 +545,7 @@ function sel($a, $b) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GLASÉ | Gestión de Arreglos</title>
 
-    <link rel="stylesheet" href="../../css/arreglos.css">
+    <link rel="stylesheet" href="../../css/arreglos.css?v=<?php echo @filemtime(__DIR__ . '/../../css/arreglos.css') ?: time(); ?>">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
@@ -565,7 +572,7 @@ function sel($a, $b) {
 
 <!------------ SIDEBAR ------------>
 <aside class="sidebar">
-    <div class="logo">
+    <div class="logo" onclick="window.location.href='../dashboard.php'" style="cursor:pointer;">
         <i class="fa-solid fa-shoe-prints"></i>
         <h2>GLASÉ</h2>
     </div>
@@ -578,7 +585,9 @@ function sel($a, $b) {
         <?php endif; ?>
         <li><a href="mercancia.php"><i class="fa-solid fa-box-open"></i> Mercancía</a></li>
         <li><a href="clientes.php"><i class="fa-solid fa-users"></i> Clientes</a></li>
+        <?php if (strtolower($_SESSION['Rol'] ?? '') === 'administrador'): ?>
         <li><a href="configuracion.php"><i class="fa-solid fa-gear"></i> Configuración</a></li>
+        <?php endif; ?>
         <li><a href="../cerrarsesion.php"><i class="fa-solid fa-right-from-bracket"></i> Cerrar Sesión</a></li>
     </ul>
 </aside>
@@ -642,8 +651,13 @@ function sel($a, $b) {
                             <input type="email" name="nc_correo" id="nc_correo" placeholder="Correo">
                         </div>
                         <div class="grupo">
-                            <label>Ciudad</label>
-                            <input type="text" name="nc_ciudad" id="nc_ciudad" placeholder="Ciudad">
+                            <label>Localidad *</label>
+                            <select name="nc_localidad" id="nc_localidad">
+                                <option value="">Seleccione localidad</option>
+                                <?php foreach ($localidades_bogota as $loc): ?>
+                                    <option value="<?php echo htmlspecialchars($loc); ?>"><?php echo htmlspecialchars($loc); ?></option>
+                                <?php endforeach; ?>
+                            </select>
                         </div>
                     </div>
                     <div class="fila">
@@ -749,43 +763,6 @@ function sel($a, $b) {
         </form>
     </section>
 
-    <!------------ STOCK DE MATERIALES ------------>
-    <section class="panel-stock">
-        <h2>Stock actual de materiales</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Material</th>
-                    <th>Categoría</th>
-                    <th>Cantidad disponible</th>
-                    <th>Estado</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php if (count($lista_materiales) > 0): ?>
-                    <?php foreach ($lista_materiales as $mat): ?>
-                        <tr>
-                            <td><?php echo htmlspecialchars($mat['nombre']); ?></td>
-                            <td><?php echo htmlspecialchars($mat['categoria']); ?></td>
-                            <td><?php echo $mat['cantidad'] . ' ' . htmlspecialchars($mat['unidad']); ?></td>
-                            <td>
-                                <?php if ($mat['cantidad'] <= 0): ?>
-                                    <span class="tag-stock agotado">Agotado</span>
-                                <?php elseif ($mat['cantidad'] <= $mat['stock_minimo']): ?>
-                                    <span class="tag-stock bajo">Stock Bajo</span>
-                                <?php else: ?>
-                                    <span class="tag-stock ok">Disponible</span>
-                                <?php endif; ?>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php else: ?>
-                    <tr><td colspan="4" class="celda-vacia">No hay materiales registrados.</td></tr>
-                <?php endif; ?>
-            </tbody>
-        </table>
-    </section>
-
     <!------------ TABLA DE ARREGLOS ------------>
     <section class="tabla">
         <div class="encabezado-tabla">
@@ -859,6 +836,43 @@ function sel($a, $b) {
         </table>
     </section>
 
+    <!------------ STOCK DE MATERIALES ------------>
+    <section class="panel-stock">
+        <h2>Stock actual de materiales</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Material</th>
+                    <th>Categoría</th>
+                    <th>Cantidad disponible</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if (count($lista_materiales) > 0): ?>
+                    <?php foreach ($lista_materiales as $mat): ?>
+                        <tr>
+                            <td><?php echo htmlspecialchars($mat['nombre']); ?></td>
+                            <td><?php echo htmlspecialchars($mat['categoria']); ?></td>
+                            <td><?php echo $mat['cantidad'] . ' ' . htmlspecialchars($mat['unidad']); ?></td>
+                            <td>
+                                <?php if ($mat['cantidad'] <= 0): ?>
+                                    <span class="tag-stock agotado">Agotado</span>
+                                <?php elseif ($mat['cantidad'] < $mat['stock_minimo']): ?>
+                                    <span class="tag-stock bajo">Stock Bajo</span>
+                                <?php else: ?>
+                                    <span class="tag-stock ok">Disponible</span>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <tr><td colspan="4" class="celda-vacia">No hay materiales registrados.</td></tr>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </section>
+
     <!-- Formulario oculto para eliminar -->
     <form id="formEliminar" action="arreglos.php" method="POST" class="oculto">
         <input type="hidden" name="id" id="idEliminar">
@@ -904,7 +918,7 @@ const camposCliente = {
     nc_telefono: 'telefono',
     nc_correo: 'correo',
     nc_direccion: 'direccion',
-    nc_ciudad: 'ciudad',
+    nc_localidad: 'localidad',
     nc_observaciones: 'observaciones'
 };
 
@@ -913,6 +927,7 @@ function llenarDatosCliente(c, soloLectura) {
         const el = document.getElementById(id);
         el.value = c ? (c[clave] || '') : '';
         el.readOnly = soloLectura;
+        if (el.tagName === 'SELECT') el.disabled = soloLectura;
     }
 }
 
@@ -928,6 +943,7 @@ function resetCliente() {
     document.getElementById('datosCliente').style.display = 'none';
     document.getElementById('nc_nombres').required = false;
     document.getElementById('nc_telefono').required = false;
+    document.getElementById('nc_localidad').required = false;
     llenarDatosCliente(null, false);
     mensajeCliente('', '');
     documentoBuscado = '';
@@ -940,6 +956,7 @@ function mostrarClienteExistente(c) {
     document.getElementById('datosCliente').style.display = 'block';
     document.getElementById('nc_nombres').required = false;
     document.getElementById('nc_telefono').required = false;
+    document.getElementById('nc_localidad').required = false;
     mensajeCliente('Cliente encontrado: sus datos se cargaron automáticamente.', 'ok');
     documentoBuscado = (c.documento || '').trim();
 }
@@ -951,6 +968,7 @@ function mostrarClienteNuevo(doc) {
     document.getElementById('datosCliente').style.display = 'block';
     document.getElementById('nc_nombres').required = true;
     document.getElementById('nc_telefono').required = true;
+    document.getElementById('nc_localidad').required = true;
     mensajeCliente('Este documento no está registrado. Completa los datos para registrar al cliente.', 'nuevo');
     documentoBuscado = doc;
     document.getElementById('nc_nombres').focus();
@@ -1176,7 +1194,10 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 
-<script src="../../js/arreglos.js"></script>
+<!-- Menú responsivo -->
+<button type="button" class="menu-toggle" id="menuToggle" aria-label="Abrir menú"><i class="fa-solid fa-bars"></i></button>
+<div class="menu-overlay" id="menuOverlay"></div>
 
+<script src="../../js/arreglos.js"></script>
 </body>
 </html>

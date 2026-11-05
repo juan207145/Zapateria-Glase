@@ -69,7 +69,7 @@ $ultimos_arreglos = filas($conexion, "SELECT a.id, c.nombres, a.tipo_arreglo, a.
 $inventario = filas($conexion, "SELECT nombre, cantidad FROM productos WHERE cantidad < 5 ORDER BY cantidad ASC, nombre ASC LIMIT 8");
 
 // ---------- 6. CLIENTES RECIENTES Y ENTREGAS DE HOY ----------
-$clientes_recientes = filas($conexion, "SELECT nombres, telefono, ciudad FROM clientes ORDER BY id DESC LIMIT 4");
+$clientes_recientes = filas($conexion, "SELECT nombres, telefono, localidad FROM clientes ORDER BY id DESC LIMIT 4");
 // Entregas de hoy y de los próximos 4 días (sin contar los arreglos ya finalizados)
 $entregas_hoy = filas($conexion, "SELECT c.nombres, a.tipo_arreglo, a.estado, a.fecha_entrega
     FROM arreglos a LEFT JOIN clientes c ON c.id = a.cliente_id
@@ -79,25 +79,25 @@ $entregas_hoy = filas($conexion, "SELECT c.nombres, a.tipo_arreglo, a.estado, a.
 
 
 // ---------- ALERTAS DEL SISTEMA ----------
-// Cada alerta: [nivel (critica|aviso), icono, texto]
+// Cada alerta: [nivel (critica|aviso), icono, texto, grupo]
 $alertas = [];
 
 $n_prod_agotados = (int) valor($conexion, "SELECT COUNT(*) FROM productos WHERE cantidad <= 0");
 $n_prod_bajos    = (int) valor($conexion, "SELECT COUNT(*) FROM productos WHERE cantidad > 0 AND cantidad < 5");
 $n_mat_agotados  = (int) valor($conexion, "SELECT COUNT(*) FROM materiales WHERE cantidad <= 0");
-$n_mat_bajos     = (int) valor($conexion, "SELECT COUNT(*) FROM materiales WHERE cantidad > 0 AND cantidad <= stock_minimo");
+$n_mat_bajos     = (int) valor($conexion, "SELECT COUNT(*) FROM materiales WHERE cantidad > 0 AND cantidad < stock_minimo");
 
-foreach (filas($conexion, "SELECT nombre FROM productos WHERE cantidad <= 0 ORDER BY nombre LIMIT 3") as $f) {
-    $alertas[] = ['critica', 'fa-circle-xmark', 'Se acabó el stock del producto ' . $f['nombre'] . '.'];
+foreach (filas($conexion, "SELECT nombre FROM productos WHERE cantidad <= 0 ORDER BY nombre LIMIT 10") as $f) {
+    $alertas[] = ['critica', 'fa-circle-xmark', 'Se acabó el stock del producto ' . $f['nombre'] . '.', 'prod_agotados'];
 }
-foreach (filas($conexion, "SELECT nombre, cantidad FROM productos WHERE cantidad > 0 AND cantidad < 5 ORDER BY cantidad ASC LIMIT 3") as $f) {
-    $alertas[] = ['aviso', 'fa-triangle-exclamation', 'Stock bajo del producto ' . $f['nombre'] . ' (' . (int) $f['cantidad'] . ' unidades).'];
+foreach (filas($conexion, "SELECT nombre, cantidad FROM productos WHERE cantidad > 0 AND cantidad < 5 ORDER BY cantidad ASC LIMIT 10") as $f) {
+    $alertas[] = ['aviso', 'fa-triangle-exclamation', 'Stock bajo del producto ' . $f['nombre'] . ' (' . (int) $f['cantidad'] . ' unidades).', 'prod_bajos'];
 }
-foreach (filas($conexion, "SELECT nombredelmaterial AS nombre FROM materiales WHERE cantidad <= 0 ORDER BY nombredelmaterial LIMIT 3") as $f) {
-    $alertas[] = ['critica', 'fa-circle-xmark', 'Se acabó el material ' . $f['nombre'] . '.'];
+foreach (filas($conexion, "SELECT nombredelmaterial AS nombre FROM materiales WHERE cantidad <= 0 ORDER BY nombredelmaterial LIMIT 10") as $f) {
+    $alertas[] = ['critica', 'fa-circle-xmark', 'Se acabó el material ' . $f['nombre'] . '.', 'mat_agotados'];
 }
-foreach (filas($conexion, "SELECT nombredelmaterial AS nombre, cantidad FROM materiales WHERE cantidad > 0 AND cantidad <= stock_minimo ORDER BY cantidad ASC LIMIT 3") as $f) {
-    $alertas[] = ['aviso', 'fa-triangle-exclamation', 'Stock bajo del material ' . $f['nombre'] . ' (' . (int) $f['cantidad'] . ' disponibles).'];
+foreach (filas($conexion, "SELECT nombredelmaterial AS nombre, cantidad FROM materiales WHERE cantidad > 0 AND cantidad < stock_minimo ORDER BY cantidad ASC LIMIT 10") as $f) {
+    $alertas[] = ['aviso', 'fa-triangle-exclamation', 'Stock bajo del material ' . $f['nombre'] . ' (' . (int) $f['cantidad'] . ' disponibles).', 'mat_bajos'];
 }
 
 // Arreglos atrasados o que se entregan hoy, mañana o pasado mañana
@@ -106,17 +106,37 @@ $n_arr_cercanos  = 0;
 $arreglos_alerta = filas($conexion, "SELECT c.nombres, a.tipo_arreglo, a.fecha_entrega, DATEDIFF(a.fecha_entrega, CURDATE()) AS dias
     FROM arreglos a LEFT JOIN clientes c ON c.id = a.cliente_id
     WHERE a.estado <> 'Finalizado' AND a.fecha_entrega <= DATE_ADD(CURDATE(), INTERVAL 2 DAY)
-    ORDER BY a.fecha_entrega ASC LIMIT 6");
+    ORDER BY a.fecha_entrega ASC LIMIT 10");
 foreach ($arreglos_alerta as $f) {
     $dias = (int) $f['dias'];
     $quien = ($f['nombres'] ?? 'Sin cliente') . ' (' . $f['tipo_arreglo'] . ')';
     if ($dias < 0) {
         $n_arr_atrasados++;
-        $alertas[] = ['critica', 'fa-clock', 'Arreglo atrasado de ' . $quien . ': debía entregarse el ' . fecha_corta($f['fecha_entrega']) . '.'];
+        $alertas[] = ['critica', 'fa-clock', 'Arreglo atrasado de ' . $quien . ': debía entregarse el ' . fecha_corta($f['fecha_entrega']) . '.', 'arr_atrasados'];
     } else {
         $n_arr_cercanos++;
         $cuando = ($dias === 0) ? 'hoy' : (($dias === 1) ? 'mañana' : 'el ' . fecha_corta($f['fecha_entrega']));
-        $alertas[] = ['aviso', 'fa-clock', 'Arreglo de ' . $quien . ' se entrega ' . $cuando . '.'];
+        $alertas[] = ['aviso', 'fa-clock', 'Arreglo de ' . $quien . ' se entrega ' . $cuando . '.', 'arr_cercanos'];
+    }
+}
+
+// Alertas agrupadas por tipo para el panel de notificaciones
+$definicion_grupos = [
+    'arr_atrasados' => ['Arreglos atrasados',            'fa-clock',                'critica'],
+    'arr_cercanos'  => ['Arreglos próximos a entregar',  'fa-calendar-day',         'aviso'],
+    'prod_agotados' => ['Productos agotados',            'fa-circle-xmark',         'critica'],
+    'prod_bajos'    => ['Productos con stock bajo',      'fa-triangle-exclamation', 'aviso'],
+    'mat_agotados'  => ['Materiales agotados',           'fa-circle-xmark',         'critica'],
+    'mat_bajos'     => ['Materiales con stock bajo',     'fa-triangle-exclamation', 'aviso'],
+];
+$grupos_alertas = [];
+foreach ($definicion_grupos as $clave => $def) {
+    $items = [];
+    foreach ($alertas as $al) {
+        if ($al[3] === $clave) $items[] = $al[2];
+    }
+    if ($items) {
+        $grupos_alertas[] = ['titulo' => $def[0], 'icono' => $def[1], 'nivel' => $def[2], 'items' => $items];
     }
 }
 
@@ -152,14 +172,14 @@ function clase_estado_arreglo($estado) {
 
     <title>GLASÉ | Panel Principal</title>
 
-    <link rel="stylesheet" href="../css/dashboard.css">
+    <link rel="stylesheet" href="../css/dashboard.css?v=<?php echo @filemtime(__DIR__ . '/../css/dashboard.css') ?: time(); ?>">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 </head>
 
 <body>
 
 <aside class="sidebar">
-    <div class="logo">
+    <div class="logo" onclick="window.location.href='dashboard.php'" style="cursor:pointer;">
         <i class="fa-solid fa-shoe-prints"></i>
         <h2>GLASÉ</h2>
     </div>
@@ -173,7 +193,9 @@ function clase_estado_arreglo($estado) {
         <?php endif; ?>
         <li><a href="componentes/mercancia.php"><i class="fa-solid fa-box-open"></i> Mercancía</a></li>
         <li><a href="componentes/clientes.php"><i class="fa-solid fa-users"></i> Clientes</a></li>
+        <?php if (strtolower($_SESSION['Rol'] ?? '') === 'administrador'): ?>
         <li><a href="componentes/configuracion.php"><i class="fa-solid fa-gear"></i> Configuración</a></li>
+        <?php endif; ?>
         <li><a href="cerrarsesion.php"><i class="fa-solid fa-right-from-bracket"></i> Cerrar Sesión</a></li>
     </ul>
 </aside>
@@ -396,7 +418,7 @@ function clase_estado_arreglo($estado) {
             <tr>
                 <th>Cliente</th>
                 <th>Teléfono</th>
-                <th>Ciudad</th>
+                <th>Localidad</th>
                 <th>Estado</th>
             </tr>
         </thead>
@@ -406,7 +428,7 @@ function clase_estado_arreglo($estado) {
                     <tr>
                         <td><?php echo h($c['nombres']); ?></td>
                         <td><?php echo h($c['telefono']); ?></td>
-                        <td><?php echo h($c['ciudad']); ?></td>
+                        <td><?php echo h($c['localidad']); ?></td>
                         <td>Activo</td>
                     </tr>
                 <?php endforeach; ?>
@@ -461,77 +483,62 @@ function clase_estado_arreglo($estado) {
 </main>
 
 <?php if ($alertas): ?>
-<!-- Campana de alertas: muestra las alertas una por una y lleva al panel al hacer clic -->
+<!-- Campana de alertas: globos una por una y panel de notificaciones agrupadas -->
 <div class="campana" id="campana">
     <div class="campana-globo" id="campanaGlobo" role="button" tabindex="0">
         <i class="fa-solid fa-triangle-exclamation" id="campanaIcono"></i>
         <span id="campanaTexto"></span>
     </div>
-    <button type="button" class="campana-btn" id="campanaBtn" title="Ver alertas del sistema" aria-label="Ver alertas del sistema">
+    <button type="button" class="campana-btn" id="campanaBtn" title="Ver notificaciones" aria-label="Ver notificaciones">
         <i class="fa-solid fa-bell"></i>
         <span class="campana-contador"><?php echo count($alertas); ?></span>
     </button>
 </div>
 
+<div class="notif-panel" id="notifPanel" role="dialog" aria-label="Notificaciones">
+    <div class="notif-cabecera">
+        <div>
+            <strong><i class="fa-solid fa-bell"></i> Notificaciones</strong>
+            <span><?php echo count($alertas); ?> pendiente(s)</span>
+        </div>
+        <button type="button" class="notif-cerrar" id="notifCerrar" aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="notif-cuerpo">
+        <?php foreach ($grupos_alertas as $g): ?>
+            <div class="notif-grupo <?php echo h($g['nivel']); ?>">
+                <button type="button" class="notif-grupo-titulo">
+                    <i class="fa-solid <?php echo h($g['icono']); ?>"></i>
+                    <span><?php echo h($g['titulo']); ?></span>
+                    <em><?php echo count($g['items']); ?></em>
+                    <i class="fa-solid fa-chevron-down notif-flecha"></i>
+                </button>
+                <ul>
+                    <?php foreach ($g['items'] as $it): ?>
+                        <li><?php echo h($it); ?></li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        <?php endforeach; ?>
+    </div>
+    <div class="notif-pie">
+        <a href="#panel-alertas" id="notifVerTabla">Ver tabla de alertas</a>
+    </div>
+</div>
+
 <script>
-(function () {
-    const alertas = <?php echo json_encode(array_map(function ($a) { return ['nivel' => $a[0], 'texto' => $a[2]]; }, $alertas), JSON_UNESCAPED_UNICODE); ?>;
-    const automatico = <?php echo $mostrar_popup ? 'true' : 'false'; ?>;
-
-    const globo = document.getElementById('campanaGlobo');
-    const texto = document.getElementById('campanaTexto');
-    const icono = document.getElementById('campanaIcono');
-    const boton = document.getElementById('campanaBtn');
-    let cancelado = false;
-
-    function irAlPanel() {
-        cancelado = true;
-        globo.classList.remove('visible');
-        const panel = document.getElementById('panel-alertas');
-        if (panel) {
-            panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            panel.classList.add('resaltado');
-            setTimeout(() => panel.classList.remove('resaltado'), 2500);
-        }
-    }
-
-    boton.addEventListener('click', irAlPanel);
-    globo.addEventListener('click', irAlPanel);
-
-    // Muestra las alertas de a una (una sola pasada por inicio de sesión)
-    function mostrar(i) {
-        if (cancelado || i >= alertas.length) {
-            globo.classList.remove('visible');
-            return;
-        }
-        const a = alertas[i];
-        texto.textContent = a.texto;
-        globo.className = 'campana-globo visible ' + a.nivel;
-        icono.className = 'fa-solid ' + (a.nivel === 'critica' ? 'fa-circle-xmark' : 'fa-triangle-exclamation');
-        setTimeout(() => {
-            globo.classList.remove('visible');
-            setTimeout(() => mostrar(i + 1), 500);
-        }, 4000);
-    }
-
-    if (automatico) {
-        setTimeout(() => mostrar(0), 800);
-    }
-})();
+// Datos de las alertas (los usa js/dashboard.js)
+window.GLASE_ALERTAS = {
+    lista: <?php echo json_encode(array_map(function ($a) { return ['nivel' => $a[0], 'texto' => $a[2]]; }, $alertas), JSON_UNESCAPED_UNICODE); ?>,
+    automatico: <?php echo $mostrar_popup ? 'true' : 'false'; ?>
+};
 </script>
 <?php endif; ?>
 
-<script>
-// Reloj del encabezado
-function actualizarReloj() {
-    const el = document.getElementById('reloj');
-    if (el) {
-        el.textContent = new Date().toLocaleString('es-CO');
-    }
-}
-actualizarReloj();
-setInterval(actualizarReloj, 1000);
-</script>
 
+
+<!-- Menú responsivo -->
+<button type="button" class="menu-toggle" id="menuToggle" aria-label="Abrir menú"><i class="fa-solid fa-bars"></i></button>
+<div class="menu-overlay" id="menuOverlay"></div>
+<script src="../js/dashboard.js"></script>
 </body>
 </html>

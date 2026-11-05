@@ -11,6 +11,9 @@ if (!isset($_SESSION['Usuario'])) {
 $usuario = $_SESSION['Usuario'];
 $rol = $_SESSION['Rol'];
 
+// Las 20 localidades de Bogotá + 'Otro' para quien no encaje en ninguna
+$localidades_bogota = ['Usaquén', 'Chapinero', 'Santa Fe', 'San Cristóbal', 'Usme', 'Tunjuelito', 'Bosa', 'Kennedy', 'Fontibón', 'Engativá', 'Suba', 'Barrios Unidos', 'Teusaquillo', 'Los Mártires', 'Antonio Nariño', 'Puente Aranda', 'La Candelaria', 'Rafael Uribe Uribe', 'Ciudad Bolívar', 'Sumapaz', 'Otro'];
+
 // Variables para alertas estilizadas
 $alerta_tipo = "";
 $alerta_mensaje = "";
@@ -47,12 +50,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_cliente'])) {
     $telefono = trim($_POST['telefono']);
     $correo = trim($_POST['correo']);
     $direccion = trim($_POST['direccion']);
-    $ciudad = trim($_POST['ciudad']);
+    $localidad = trim($_POST['localidad'] ?? '');
     $observaciones = trim($_POST['observaciones']);
 
-    if (!empty($nombres) && !empty($documento) && !empty($telefono)) {
-        $stmt = $conexion->prepare("INSERT INTO clientes (nombres, documento, telefono, correo, direccion, ciudad, observaciones) VALUES (?, ?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("sssssss", $nombres, $documento, $telefono, $correo, $direccion, $ciudad, $observaciones);
+    if (!empty($nombres) && !empty($documento) && !empty($telefono) && !in_array($localidad, $localidades_bogota, true)) {
+        $alerta_tipo = "warning";
+        $alerta_mensaje = "Selecciona una localidad válida de Bogotá.";
+    } elseif (!empty($nombres) && !empty($documento) && !empty($telefono)) {
+        $stmt = $conexion->prepare("INSERT INTO clientes (nombres, documento, telefono, correo, direccion, localidad, observaciones) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("sssssss", $nombres, $documento, $telefono, $correo, $direccion, $localidad, $observaciones);
         
         if ($stmt->execute()) {
             $alerta_tipo = "success";
@@ -77,12 +83,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['editar_cliente'])) {
     $telefono = trim($_POST['telefono']);
     $correo = trim($_POST['correo']);
     $direccion = trim($_POST['direccion']);
-    $ciudad = trim($_POST['ciudad']);
+    $localidad = trim($_POST['localidad'] ?? '');
     $observaciones = trim($_POST['observaciones']);
 
-    if (!empty($nombres) && !empty($documento) && !empty($telefono)) {
-        $stmt = $conexion->prepare("UPDATE clientes SET nombres=?, documento=?, telefono=?, correo=?, direccion=?, ciudad=?, observaciones=? WHERE id=?");
-        $stmt->bind_param("sssssssi", $nombres, $documento, $telefono, $correo, $direccion, $ciudad, $observaciones, $id);
+    if (!empty($nombres) && !empty($documento) && !empty($telefono) && !in_array($localidad, $localidades_bogota, true)) {
+        $alerta_tipo = "warning";
+        $alerta_mensaje = "Selecciona una localidad válida de Bogotá.";
+    } elseif (!empty($nombres) && !empty($documento) && !empty($telefono)) {
+        $stmt = $conexion->prepare("UPDATE clientes SET nombres=?, documento=?, telefono=?, correo=?, direccion=?, localidad=?, observaciones=? WHERE id=?");
+        $stmt->bind_param("sssssssi", $nombres, $documento, $telefono, $correo, $direccion, $localidad, $observaciones, $id);
         
         if ($stmt->execute()) {
             $alerta_tipo = "success";
@@ -101,7 +110,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['editar_cliente'])) {
 
 // ---------------- 4. CARGAR DATOS PARA EDICIÓN ----------------
 $editando = false;
-$edit_id = $edit_nombres = $edit_documento = $edit_telefono = $edit_correo = $edit_direccion = $edit_ciudad = $edit_observaciones = "";
+$edit_id = $edit_nombres = $edit_documento = $edit_telefono = $edit_correo = $edit_direccion = $edit_localidad = $edit_observaciones = "";
 
 if (isset($_GET['editar_id'])) {
     $id_editar = $_GET['editar_id'];
@@ -117,7 +126,7 @@ if (isset($_GET['editar_id'])) {
         $edit_telefono = $cliente_edit['telefono'];
         $edit_correo = $cliente_edit['correo'];
         $edit_direccion = $cliente_edit['direccion'];
-        $edit_ciudad = $cliente_edit['ciudad'];
+        $edit_localidad = $cliente_edit['localidad'];
         $edit_observaciones = $cliente_edit['observaciones'];
     }
     $stmt->close();
@@ -139,7 +148,7 @@ $nuevosMes = mysqli_fetch_assoc($qNuevos)['nuevos'] ?? 0;
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GLASÉ | Clientes</title>
-    <link rel="stylesheet" href="../../css/clientes.css">
+    <link rel="stylesheet" href="../../css/clientes.css?v=<?php echo @filemtime(__DIR__ . '/../../css/clientes.css') ?: time(); ?>">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <!-- SweetAlert2 para notificaciones con estilo del dashboard -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -167,7 +176,7 @@ $nuevosMes = mysqli_fetch_assoc($qNuevos)['nuevos'] ?? 0;
 
 <!-------------------- SIDEBAR -------------------->
 <aside class="sidebar">
-    <div class="logo">
+    <div class="logo" onclick="window.location.href='../dashboard.php'" style="cursor:pointer;">
         <i class="fa-solid fa-shoe-prints"></i>
         <h2>GLASÉ</h2>
     </div>
@@ -213,12 +222,16 @@ $nuevosMes = mysqli_fetch_assoc($qNuevos)['nuevos'] ?? 0;
             </a>
         </li>
    
+        <?php if (strtolower($_SESSION['Rol'] ?? '') === 'administrador'): ?>
+   
         <li>
             <a href="configuracion.php">
                 <i class="fa-solid fa-gear"></i>
                 Configuración
             </a>
         </li>
+   
+        <?php endif; ?>
         <li>
             <a href="../cerrarsesion.php">
                 <i class="fa-solid fa-right-from-bracket"></i>
@@ -280,8 +293,15 @@ $nuevosMes = mysqli_fetch_assoc($qNuevos)['nuevos'] ?? 0;
             </div>
 
             <div class="grupo">
-                <label>Ciudad</label>
-                <input type="text" name="ciudad" placeholder="Ciudad" value="<?php echo htmlspecialchars($edit_ciudad); ?>">
+                <label>Localidad *</label>
+                <select name="localidad" required>
+                    <option value="" disabled <?php echo in_array($edit_localidad, $localidades_bogota, true) ? '' : 'selected'; ?>>Seleccione localidad</option>
+                    <?php foreach ($localidades_bogota as $loc): ?>
+                        <option value="<?php echo htmlspecialchars($loc); ?>" <?php echo ($edit_localidad === $loc) ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($loc); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
             </div>
         </div>
 
@@ -349,7 +369,7 @@ $nuevosMes = mysqli_fetch_assoc($qNuevos)['nuevos'] ?? 0;
                 <th>Documento</th>
                 <th>Teléfono</th>
                 <th>Correo</th>
-                <th>Ciudad</th>
+                <th>Localidad</th>
                 <th>Acciones</th>
             </tr>
         </thead>
@@ -367,7 +387,7 @@ $nuevosMes = mysqli_fetch_assoc($qNuevos)['nuevos'] ?? 0;
                         <td><?php echo htmlspecialchars($cliente['documento']); ?></td>
                         <td><?php echo htmlspecialchars($cliente['telefono']); ?></td>
                         <td><?php echo htmlspecialchars($cliente['correo']); ?></td>
-                        <td><?php echo htmlspecialchars($cliente['ciudad']); ?></td>
+                        <td><?php echo htmlspecialchars($cliente['localidad']); ?></td>
                         <td>
                             <!-- BOTÓN DE EDITAR -->
                             <a href="clientes.php?editar_id=<?php echo $cliente['id']; ?>" class="editar" title="Editar">
@@ -395,7 +415,11 @@ $nuevosMes = mysqli_fetch_assoc($qNuevos)['nuevos'] ?? 0;
 
 </main>
 
-<script src="../../js/clientes.js"></script>
+<!-- Menú responsivo -->
+<button type="button" class="menu-toggle" id="menuToggle" aria-label="Abrir menú"><i class="fa-solid fa-bars"></i></button>
+<div class="menu-overlay" id="menuOverlay"></div>
+
+<script src="../../js/clientes.js?v=<?php echo @filemtime(__DIR__ . '/../../js/clientes.js') ?: time(); ?>"></script>
 <script>
 function confirmarEliminacion(id) {
     Swal.fire({
@@ -414,6 +438,5 @@ function confirmarEliminacion(id) {
     })
 }
 </script>
-
 </body>
 </html>

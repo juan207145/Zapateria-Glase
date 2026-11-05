@@ -235,8 +235,8 @@ $abrir_nuevo = isset($_GET['nuevo']) && !$editando;
 $totalmateriales = mysqli_query($conexion, "SELECT COUNT(*) AS total FROM materiales");
 $materialesregistrados = mysqli_fetch_assoc($totalmateriales)['total'] ?? 0;
 
-// Stock bajo: quedan entre 1 y 4. Agotado: quedan 0.
-$materialesporagotarse = mysqli_query($conexion, "SELECT COUNT(*) AS por_agotarse FROM materiales WHERE cantidad > 0 AND cantidad <= stock_minimo");
+// Stock bajo: quedan menos del stock mínimo (por defecto 5, es decir de 1 a 4). Agotado: quedan 0.
+$materialesporagotarse = mysqli_query($conexion, "SELECT COUNT(*) AS por_agotarse FROM materiales WHERE cantidad > 0 AND cantidad < stock_minimo");
 $materialesagotarse = mysqli_fetch_assoc($materialesporagotarse)['por_agotarse'] ?? 0;
 
 $materialesagotados_q = mysqli_query($conexion, "SELECT COUNT(*) AS agotados FROM materiales WHERE cantidad <= 0");
@@ -255,7 +255,7 @@ $resultado_historial = mysqli_query($conexion, "SELECT * FROM historial_material
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GLASÉ | Materiales</title>
-    <link rel="stylesheet" href="/Zapateria-Glase/css/materiales.css">
+    <link rel="stylesheet" href="/Zapateria-Glase/css/materiales.css?v=<?php echo @filemtime($_SERVER['DOCUMENT_ROOT'] . '/Zapateria-Glase/css/materiales.css') ?: time(); ?>">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
@@ -282,7 +282,7 @@ $resultado_historial = mysqli_query($conexion, "SELECT * FROM historial_material
 
 <!-------------------- SIDEBAR -------------------->
 <aside class="sidebar">
-    <div class="logo">
+    <div class="logo" onclick="window.location.href='../dashboard.php'" style="cursor:pointer;">
         <i class="fa-solid fa-shoe-prints"></i>
         <h2>GLASÉ</h2>
     </div>
@@ -295,7 +295,9 @@ $resultado_historial = mysqli_query($conexion, "SELECT * FROM historial_material
         <?php endif; ?>
         <li><a href="mercancia.php"><i class="fa-solid fa-box-open"></i> Mercancía</a></li>
         <li><a href="clientes.php"><i class="fa-solid fa-users"></i> Clientes</a></li>
+        <?php if (strtolower($_SESSION['Rol'] ?? '') === 'administrador'): ?>
         <li><a href="configuracion.php"><i class="fa-solid fa-gear"></i> Configuración</a></li>
+        <?php endif; ?>
         <li><a href="../cerrarsesion.php"><i class="fa-solid fa-right-from-bracket"></i> Cerrar Sesión</a></li>
     </ul>
 </aside>
@@ -364,7 +366,7 @@ $resultado_historial = mysqli_query($conexion, "SELECT * FROM historial_material
             <div class="grupo">
                 <label>Stock mínimo *</label>
                 <input type="number" name="stock_minimo" id="stock_minimo" min="0" step="1" placeholder="Ej: 5"
-                       title="Cuando las existencias sean iguales o menores a este valor se genera una alerta"
+                       title="Cuando las existencias sean menores a este valor aparece Stock Bajo (por defecto 5)"
                        value="<?php echo htmlspecialchars($edit_stock_minimo); ?>" required>
             </div>
         </div>
@@ -494,7 +496,7 @@ $resultado_historial = mysqli_query($conexion, "SELECT * FROM historial_material
                 <td>
                     <?php if ($cant_fila <= 0): ?>
                         <span class="estado agotado">Agotado</span>
-                    <?php elseif ($cant_fila <= $min_fila): ?>
+                    <?php elseif ($cant_fila < $min_fila): ?>
                         <span class="estado bajo">Stock Bajo</span>
                     <?php else: ?>
                         <span class="estado disponible">Disponible</span>
@@ -694,5 +696,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (selectProveedor) selectProveedor.addEventListener("change", filtrarTabla);
 });
 </script>
+
+<!-- Menú responsivo -->
+<button type="button" class="menu-toggle" id="menuToggle" aria-label="Abrir menú"><i class="fa-solid fa-bars"></i></button>
+<div class="menu-overlay" id="menuOverlay"></div>
+<script src="../../js/materiales.js"></script>
 </body>
 </html>

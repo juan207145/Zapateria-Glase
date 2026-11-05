@@ -175,7 +175,7 @@ $resultado_usuarios = mysqli_query($conexion, "SELECT * FROM iniciodesesion ORDE
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GLASÉ | Configuración y Usuarios</title>
-    <link rel="stylesheet" href="../../css/configuracion.css">
+    <link rel="stylesheet" href="../../css/configuracion.css?v=<?php echo @filemtime(__DIR__ . '/../../css/configuracion.css') ?: time(); ?>">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
@@ -207,7 +207,7 @@ $resultado_usuarios = mysqli_query($conexion, "SELECT * FROM iniciodesesion ORDE
 
 <!---------------- SIDEBAR ---------------->
 <aside class="sidebar">
-    <div class="logo">
+    <div class="logo" onclick="window.location.href='../dashboard.php'" style="cursor:pointer;">
         <i class="fa-solid fa-shoe-prints"></i>
         <h2>GLASÉ</h2>
     </div>
@@ -455,5 +455,10 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 </script>
 
+
+<!-- Menú responsivo -->
+<button type="button" class="menu-toggle" id="menuToggle" aria-label="Abrir menú"><i class="fa-solid fa-bars"></i></button>
+<div class="menu-overlay" id="menuOverlay"></div>
+<script src="../../js/configuracion.js"></script>
 </body>
 </html>
