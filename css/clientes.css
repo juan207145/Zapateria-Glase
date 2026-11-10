@@ -250,10 +250,6 @@ CARDS
     transition:.3s;
 }
 
-.card:hover{
-    transform:translateY(-5px);
-}
-
 .card i{
     font-size:35px;
     color:var(--principal);

@@ -776,6 +776,7 @@ function sel($a, $b) {
                     <th>Cliente</th>
                     <th>Calzado</th>
                     <th>Servicio</th>
+                    <th>Valor</th>
                     <th>Materiales usados</th>
                     <th>Entrega</th>
                     <th>Estado</th>
@@ -794,6 +795,7 @@ function sel($a, $b) {
                             </td>
                             <td><?php echo htmlspecialchars($row['tipo_calzado']); ?></td>
                             <td><?php echo htmlspecialchars($row['tipo_arreglo']); ?></td>
+                            <td>$<?php echo number_format((float) $row['valor'], 0, ',', '.'); ?></td>
                             <td class="lista-usados">
                                 <?php echo !empty($row['materiales_usados']) ? htmlspecialchars($row['materiales_usados']) : '—'; ?>
                             </td>
@@ -830,7 +832,7 @@ function sel($a, $b) {
                         </tr>
                     <?php endwhile; ?>
                 <?php else: ?>
-                    <tr><td colspan="7" class="celda-vacia">No hay arreglos registrados.</td></tr>
+                    <tr><td colspan="8" class="celda-vacia">No hay arreglos registrados.</td></tr>
                 <?php endif; ?>
             </tbody>
         </table>

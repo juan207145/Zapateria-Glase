@@ -261,12 +261,6 @@ header p{
 
 }
 
-.card:hover{
-
-    transform:translateY(-6px);
-
-}
-
 .card i{
 
     font-size:38px;
@@ -830,30 +824,6 @@ header{
 /*=========================================
         EFECTOS
 =========================================*/
-
-.card{
-
-    cursor:pointer;
-
-}
-
-.card:hover{
-
-    box-shadow:0 15px 35px rgba(0,0,0,.12);
-
-}
-
-.card i{
-
-    transition:.3s;
-
-}
-
-.card:hover i{
-
-    transform:scale(1.15) rotate(-5deg);
-
-}
 
 .usuario{
 
