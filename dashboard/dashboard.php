@@ -196,6 +196,7 @@ function clase_estado_arreglo($estado) {
         <?php if (strtolower($_SESSION['Rol'] ?? '') === 'administrador'): ?>
         <li><a href="componentes/configuracion.php"><i class="fa-solid fa-gear"></i> Configuración</a></li>
         <?php endif; ?>
+        <li><a href="../manual/Manual_Usuario_GLASE.pdf" target="_blank" rel="noopener"><i class="fa-solid fa-file-pdf"></i> Manual de Usuario</a></li>
         <li><a href="cerrarsesion.php"><i class="fa-solid fa-right-from-bracket"></i> Cerrar Sesión</a></li>
     </ul>
 </aside>

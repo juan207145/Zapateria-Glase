@@ -233,6 +233,12 @@ $nuevosMes = mysqli_fetch_assoc($qNuevos)['nuevos'] ?? 0;
    
         <?php endif; ?>
         <li>
+            <a href="../../manual/Manual_Usuario_GLASE.pdf" target="_blank" rel="noopener">
+                <i class="fa-solid fa-file-pdf"></i>
+                Manual de Usuario
+            </a>
+        </li>
+        <li>
             <a href="../cerrarsesion.php">
                 <i class="fa-solid fa-right-from-bracket"></i>
                 Cerrar Sesión
